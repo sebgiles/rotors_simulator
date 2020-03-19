@@ -22,14 +22,14 @@ project(rotors_gazebo_plugins)
 # ========================== SET DEFAULTS FOR PASSED-IN VARIABLES =============================== #
 # =============================================================================================== #
 
-find_package(mavlink QUIET)
-if(${mavlink_FOUND})
-  message(STATUS " mavlink found, building MAVLINK_INTERFACE_PLUGIN.")
-  set(BUILD_MAVLINK_INTERFACE_PLUGIN TRUE)
-else()
-  message(STATUS " mavlink not found, not building MAVLINK_INTERFACE_PLUGIN.")
-  set(BUILD_MAVLINK_INTERFACE_PLUGIN FALSE)
-endif()
+# find_package(mavlink QUIET)
+# if(${mavlink_FOUND})
+#   message(STATUS " mavlink found, building MAVLINK_INTERFACE_PLUGIN.")
+#   set(BUILD_MAVLINK_INTERFACE_PLUGIN TRUE)
+# else()
+#   message(STATUS " mavlink not found, not building MAVLINK_INTERFACE_PLUGIN.")
+#   set(BUILD_MAVLINK_INTERFACE_PLUGIN FALSE)
+# endif()
 
 if(NOT DEFINED BUILD_OCTOMAP_PLUGIN)
   message(STATUS "BUILD_OCTOMAP_PLUGIN variable not provided, setting to FALSE.")
@@ -87,9 +87,9 @@ add_definitions(-std=c++11)
 
 # Provides a compiler flag notifying the preprocessor about
 # the MAVLink Interface plugin build status
-add_definitions(
-  -DMAVLINK_INTERFACE=${BUILD_MAVLINK_INTERFACE_PLUGIN}
-)
+# add_definitions(
+#   -DMAVLINK_INTERFACE=${BUILD_MAVLINK_INTERFACE_PLUGIN}
+# )
 
 # To enable assertions when compiled in release mode.
 add_definitions(-DROS_ASSERT_ENABLED)
@@ -143,10 +143,10 @@ include_directories(${OpenCV_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 
-if (BUILD_MAVLINK_INTERFACE_PLUGIN)
-  include_directories(${mavros_msgs_INCLUDE_DIRS})
-  include_directories(${libmavconn_INCLUDE_DIRS})
-endif()
+# if (BUILD_MAVLINK_INTERFACE_PLUGIN)
+#   include_directories(${mavros_msgs_INCLUDE_DIRS})
+#   include_directories(${libmavconn_INCLUDE_DIRS})
+# endif()
 
 # ============================================== #
 # =================== YAML_CPP ================= #
@@ -378,71 +378,71 @@ list(APPEND targets_to_install rotors_gazebo_magnetometer_plugin)
 
 #================================= MAVLINK INTERFACE PLUGIN =====================================//
 
-if(BUILD_MAVLINK_INTERFACE_PLUGIN)
-  message(STATUS "BUILD_MAVLINK_INTERFACE_PLUGIN = TRUE, adding mavros dependency and building mavlink_interface_plugin.")
-else ()
-  message(STATUS "BUILD_MAVLINK_INTERFACE_PLUGIN = FALSE, NOT adding mavros dependency and NOT building mavlink_interface_plugin.")
-endif ()
+# if(BUILD_MAVLINK_INTERFACE_PLUGIN)
+#   message(STATUS "BUILD_MAVLINK_INTERFACE_PLUGIN = TRUE, adding mavros dependency and building mavlink_interface_plugin.")
+# else ()
+#   message(STATUS "BUILD_MAVLINK_INTERFACE_PLUGIN = FALSE, NOT adding mavros dependency and NOT building mavlink_interface_plugin.")
+# endif ()
 
-if (BUILD_MAVLINK_INTERFACE_PLUGIN)
-  # needed to ensure mavros is actually built by the time we call find_package
-  add_custom_target("mavros_dummy_target" DEPENDS mavros)
+# if (BUILD_MAVLINK_INTERFACE_PLUGIN)
+#   # needed to ensure mavros is actually built by the time we call find_package
+#   add_custom_target("mavros_dummy_target" DEPENDS mavros)
 
-  find_package(mavros QUIET)
+#   find_package(mavros QUIET)
 
-  # We need the MAVLink headers.
-  set(MAVLINK_HEADERS_FOUND FALSE)
-  set(MAVROS_VALID FALSE)
+#   # We need the MAVLink headers.
+#   set(MAVLINK_HEADERS_FOUND FALSE)
+#   set(MAVROS_VALID FALSE)
 
-  # First, check to see if MAVLink headers were passed in as variable
-  if(NOT ${MAVLINK_HEADER_DIR} STREQUAL "")
-    message(STATUS "MAVLINK_HEADER_DIR provided as '${MAVLINK_HEADER_DIR}'.")
-    include_directories(${MAVLINK_HEADER_DIR})
-    set(MAVLINK_HEADERS_FOUND TRUE)
-  else()
-    message(WARN "MAVLINK_HEADER_DIR not provided, falling back to looking at default paths...")
-    # fist check if there's a mavlink dir in the current workspace
-    if(EXISTS ${mavlink_INCLUDE_DIRS}/mavlink/v2.0)
-      message(WARN "Found MAVLink headers in workspace at ' ${mavlink_INCLUDE_DIRS}/mavlink/v2.0/'.")
-      include_directories("${mavlink_INCLUDE_DIRS}/mavlink/v2.0/")
-      set(MAVLINK_HEADERS_FOUND TRUE)
-    # If ROS is installed, we should be able to find them at the path below
-    elseif(EXISTS /opt/ros/$ENV{ROS_DISTRO}/include/mavlink/v2.0/)
-      message(STATUS "Found MAVLink headers at '/opt/ros/$ENV{ROS_DISTRO}/include/mavlink/v2.0/'.")
-      include_directories("/opt/ros/$ENV{ROS_DISTRO}/include/mavlink/v2.0/")
-      set(MAVLINK_HEADERS_FOUND TRUE)
-    endif()
+#   # First, check to see if MAVLink headers were passed in as variable
+#   if(NOT ${MAVLINK_HEADER_DIR} STREQUAL "")
+#     message(STATUS "MAVLINK_HEADER_DIR provided as '${MAVLINK_HEADER_DIR}'.")
+#     include_directories(${MAVLINK_HEADER_DIR})
+#     set(MAVLINK_HEADERS_FOUND TRUE)
+#   else()
+#     message(WARN "MAVLINK_HEADER_DIR not provided, falling back to looking at default paths...")
+#     # fist check if there's a mavlink dir in the current workspace
+#     if(EXISTS ${mavlink_INCLUDE_DIRS}/mavlink/v2.0)
+#       message(WARN "Found MAVLink headers in workspace at ' ${mavlink_INCLUDE_DIRS}/mavlink/v2.0/'.")
+#       include_directories("${mavlink_INCLUDE_DIRS}/mavlink/v2.0/")
+#       set(MAVLINK_HEADERS_FOUND TRUE)
+#     # If ROS is installed, we should be able to find them at the path below
+#     elseif(EXISTS /opt/ros/$ENV{ROS_DISTRO}/include/mavlink/v2.0/)
+#       message(STATUS "Found MAVLink headers at '/opt/ros/$ENV{ROS_DISTRO}/include/mavlink/v2.0/'.")
+#       include_directories("/opt/ros/$ENV{ROS_DISTRO}/include/mavlink/v2.0/")
+#       set(MAVLINK_HEADERS_FOUND TRUE)
+#     endif()
 
-  endif()
+#   endif()
 
-  # Check mavros version
-  if(mavros_VERSION_MAJOR GREATER 0 OR mavros_VERSION_MINOR GREATER 17)
-    set(MAVROS_VALID TRUE)
-  else()
-    message(WARN "MAVROS version too old (${mavros_VERSION}) - need version newer than 0.17, not building MavlinkInterfacePlugin")
-  endif()
+#   # Check mavros version
+#   if(mavros_VERSION_MAJOR GREATER 0 OR mavros_VERSION_MINOR GREATER 17)
+#     set(MAVROS_VALID TRUE)
+#   else()
+#     message(WARN "MAVROS version too old (${mavros_VERSION}) - need version newer than 0.17, not building MavlinkInterfacePlugin")
+#   endif()
 
-  if(NOT MAVLINK_HEADERS_FOUND)
-    message(ERROR "MAVLink headers were not found. They are required for building MavlinkInterfacePlugin. Not building MavlinkInterfacePlugin.")
-  endif()
+#   if(NOT MAVLINK_HEADERS_FOUND)
+#     message(ERROR "MAVLink headers were not found. They are required for building MavlinkInterfacePlugin. Not building MavlinkInterfacePlugin.")
+#   endif()
 
-  if(MAVLINK_HEADERS_FOUND AND MAVROS_VALID)
-   message(WARN "Mavlink headers found and mavros version check successful, building MavlinkInterfacePlugin")
-   # Note that this library includes TWO .cpp files.
-   add_library(rotors_gazebo_mavlink_interface SHARED src/gazebo_mavlink_interface.cpp src/geo_mag_declination_tmp.cpp)
-   target_link_libraries(rotors_gazebo_mavlink_interface ${target_linking_LIBRARIES}  ${mav_msgs})
-   add_dependencies(rotors_gazebo_mavlink_interface ${catkin_EXPORTED_TARGETS} ${mavros_EXPORTED_TARGETS} ${mavros_msgs_EXPORTED_TARGETS})
-   list(APPEND targets_to_install rotors_gazebo_mavlink_interface)
+#   if(MAVLINK_HEADERS_FOUND AND MAVROS_VALID)
+#    message(WARN "Mavlink headers found and mavros version check successful, building MavlinkInterfacePlugin")
+#    # Note that this library includes TWO .cpp files.
+#    add_library(rotors_gazebo_mavlink_interface SHARED src/gazebo_mavlink_interface.cpp src/geo_mag_declination_tmp.cpp)
+#    target_link_libraries(rotors_gazebo_mavlink_interface ${target_linking_LIBRARIES}  ${mav_msgs})
+#    add_dependencies(rotors_gazebo_mavlink_interface ${catkin_EXPORTED_TARGETS} ${mavros_EXPORTED_TARGETS} ${mavros_msgs_EXPORTED_TARGETS})
+#    list(APPEND targets_to_install rotors_gazebo_mavlink_interface)
 
-   # Note that this library includes TWO .cpp files.
-   add_library(rotors_gazebo_mavlink_interface_tmp SHARED src/gazebo_mavlink_interface_tmp.cpp src/geo_mag_declination_tmp.cpp)
-   target_link_libraries(rotors_gazebo_mavlink_interface_tmp ${target_linking_LIBRARIES}  ${mav_msgs})
-   add_dependencies(rotors_gazebo_mavlink_interface_tmp ${catkin_EXPORTED_TARGETS} ${mavros_EXPORTED_TARGETS} ${mavros_msgs_EXPORTED_TARGETS})
-   list(APPEND targets_to_install rotors_gazebo_mavlink_interface_tmp)
+#    # Note that this library includes TWO .cpp files.
+#    add_library(rotors_gazebo_mavlink_interface_tmp SHARED src/gazebo_mavlink_interface_tmp.cpp src/geo_mag_declination_tmp.cpp)
+#    target_link_libraries(rotors_gazebo_mavlink_interface_tmp ${target_linking_LIBRARIES}  ${mav_msgs})
+#    add_dependencies(rotors_gazebo_mavlink_interface_tmp ${catkin_EXPORTED_TARGETS} ${mavros_EXPORTED_TARGETS} ${mavros_msgs_EXPORTED_TARGETS})
+#    list(APPEND targets_to_install rotors_gazebo_mavlink_interface_tmp)
 
-  endif()
+#   endif()
 
-endif()
+# endif()
 
 #==================================== MOTOR MODEL PLUGIN ========================================//
 add_library(rotors_gazebo_motor_model SHARED src/gazebo_motor_model.cpp)
