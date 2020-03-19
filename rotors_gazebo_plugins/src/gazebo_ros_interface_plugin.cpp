@@ -481,6 +481,25 @@ void GazeboRosInterfacePlugin::GzConnectRosToGazeboTopicMsgCallback(
 
       break;
     }
+    case gz_std_msgs::ConnectRosToGazeboTopic::FLOAT32: {
+      gzdbg << "FLOAT32 msgtype: "<<gz_connect_ros_to_gazebo_topic_msg->msgtype()<<std::endl;
+      gazebo::transport::PublisherPtr gz_publisher_ptr =
+          gz_node_handle_->Advertise<gz_std_msgs::Float32>(
+              gz_connect_ros_to_gazebo_topic_msg->gazebo_topic(), 1);
+
+      // Create ROS subscriber.
+      ros::Subscriber ros_subscriber =
+          ros_node_handle_->subscribe<std_msgs::Float32>(
+              gz_connect_ros_to_gazebo_topic_msg->ros_topic(), 1,
+              boost::bind(&GazeboRosInterfacePlugin::RosFloat32MsgCallback,
+                          this, _1, gz_publisher_ptr));
+
+      // Save reference to the ROS subscriber so callback will continue to be
+      // called.
+      ros_subscribers.push_back(ros_subscriber);
+
+      break;
+    }
     default: {
       gzthrow("ConnectRosToGazeboTopic message type with enum val = "
               << gz_connect_ros_to_gazebo_topic_msg->msgtype()
@@ -1155,6 +1174,21 @@ void GazeboRosInterfacePlugin::GzVisVectorArrayMsgCallback(GzVisVectorArrayMsgPt
 //===========================================================================//
 //================ ROS -> GAZEBO MSG CALLBACKS/CONVERTERS ===================//
 //===========================================================================//
+
+void GazeboRosInterfacePlugin::RosFloat32MsgCallback(
+    const std_msgs::Float32ConstPtr& ros_float32_msg_ptr,
+      gazebo::transport::PublisherPtr gz_publisher_ptr){
+
+  gzdbg << "Float32 being forwarded" << std::endl;
+      
+  // Convert ROS message to Gazebo message
+
+  gz_std_msgs::Float32 gz_float32_msg;
+
+  gz_float32_msg.set_data(ros_float32_msg_ptr->data);
+  // Publish to Gazebo
+  gz_publisher_ptr->Publish(gz_float32_msg);
+}
 
 void GazeboRosInterfacePlugin::RosActuatorsMsgCallback(
     const mav_msgs::ActuatorsConstPtr& ros_actuators_msg_ptr,

@@ -310,6 +310,11 @@ class GazeboRosInterfacePlugin : public WorldPlugin {
   // ===== ROS->GAZEBO CALLBACKS/CONVERTERS ===== //
   // ============================================ //
 
+  // FLOAT32 (generic)
+  void RosFloat32MsgCallback(
+      const std_msgs::Float32ConstPtr& ros_float32_msg_ptr,
+      gazebo::transport::PublisherPtr gz_publisher_ptr);
+
   // ACTUATORS (change name??? motor control? motor speed?)
   void RosActuatorsMsgCallback(
       const mav_msgs::ActuatorsConstPtr& ros_actuators_msg_ptr,
