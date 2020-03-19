@@ -476,6 +476,12 @@ void GazeboAerodynamics::OnUpdate()
         gz_std_msgs::ConnectGazeboToRosTopic connect_gazebo_to_ros_topic_msg;
         gzdbg<<"advertised ~/" + kConnectGazeboToRosSubtopic + "\n";
 
+        // Get ready to ask for Gazebo <- ROS forwarding
+        gazebo::transport::PublisherPtr connect_ros_to_gazebo_topic_pub =
+                node_handle_->Advertise<gz_std_msgs::ConnectRosToGazeboTopic>(
+                    "~/" + kConnectRosToGazeboSubtopic, 1);
+        gz_std_msgs::ConnectRosToGazeboTopic connect_ros_to_gazebo_topic_msg;
+
         for (int i = 0; i < n_seg_; i++) {
             for (int j = 0; j < segments_[i].n_slpstr; j++) {
                 segments_[i].slpstr[j].propulsion_slipstream_sub_ = node_handle_->Subscribe("~/" + namespace_ + "/" + segments_[i].slpstr[j].slpstr_topic,
@@ -497,6 +503,12 @@ void GazeboAerodynamics::OnUpdate()
                                                                                  &GazeboAerodynamics::ControlSurface::Callback,
                                                                                  &segments_[i].cs[j]);
                     gzdbg<<"sub to: ~/" + namespace_ + "/" + segments_[i].cs[j].cs_ref_topic + "\n";
+
+                    connect_ros_to_gazebo_topic_msg.set_gazebo_topic("~/" + namespace_ + "/" + segments_[i].cs[j].cs_ref_topic);
+                    connect_ros_to_gazebo_topic_msg.set_ros_topic(namespace_ + "/" + segments_[i].cs[j].cs_ref_topic);
+                    connect_ros_to_gazebo_topic_msg.set_msgtype(gz_std_msgs::ConnectRosToGazeboTopic::FLOAT32);
+                    connect_ros_to_gazebo_topic_pub->Publish(connect_ros_to_gazebo_topic_msg, true);
+
                 }
             }
 

@@ -39,7 +39,4 @@
     <origin xyz="0.465 0 0.05" rpy="0 0.2 0" />
   </xacro:default_camera>
 
-  <!-- Instantiate a ROS message interface -->
-  <xacro:ros_interface_plugin_macro namespace="${namespace}" /> 
-
 </robot>

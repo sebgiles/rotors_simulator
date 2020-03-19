@@ -285,11 +285,19 @@ void GazeboPropulsion::OnUpdate() {
     prev_sim_time_ = world_->SimTime().Double();
 
     if (!pubs_and_subs_created_) {
+
+        // Get ready to ask for Gazebo -> ROS forwarding
         gazebo::transport::PublisherPtr connect_gazebo_to_ros_topic_pub =
                 node_handle_->Advertise<gz_std_msgs::ConnectGazeboToRosTopic>(
                     "~/" + kConnectGazeboToRosSubtopic, 1);
         gz_std_msgs::ConnectGazeboToRosTopic connect_gazebo_to_ros_topic_msg;
         gzdbg<<"advertised ~/" + kConnectGazeboToRosSubtopic + "\n";
+
+        // Get ready to ask for Gazebo <- ROS forwarding
+        gazebo::transport::PublisherPtr connect_ros_to_gazebo_topic_pub =
+                node_handle_->Advertise<gz_std_msgs::ConnectRosToGazeboTopic>(
+                    "~/" + kConnectRosToGazeboSubtopic, 1);
+        gz_std_msgs::ConnectRosToGazeboTopic connect_ros_to_gazebo_topic_msg;
 
         for (int idx = 0; idx<num_props_; idx++) {
 
@@ -313,6 +321,10 @@ void GazeboPropulsion::OnUpdate() {
                 propellers_[idx].omega_ref_sub = node_handle_->Subscribe("~/" + namespace_ + "/" + propellers_[idx].omega_ref_subtopic,
                                                                          &GazeboPropulsion::Propeller::PropSpeedCallback,
                                                                          &propellers_[idx]);
+                connect_ros_to_gazebo_topic_msg.set_gazebo_topic("~/" + namespace_ + "/" + propellers_[idx].omega_ref_subtopic);
+                connect_ros_to_gazebo_topic_msg.set_ros_topic(namespace_ + "/" + propellers_[idx].omega_ref_subtopic);
+                connect_ros_to_gazebo_topic_msg.set_msgtype(gz_std_msgs::ConnectRosToGazeboTopic::FLOAT32);
+                connect_ros_to_gazebo_topic_pub->Publish(connect_ros_to_gazebo_topic_msg, true);
             }
 
             for (int j=0; j<propellers_[idx].n_wind; j++){

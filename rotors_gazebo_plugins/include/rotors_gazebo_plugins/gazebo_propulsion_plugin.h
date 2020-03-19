@@ -42,6 +42,7 @@
 #include "VisVectorArray.pb.h"
 #include "WindSpeedBeta.pb.h"
 #include "ConnectGazeboToRosTopic.pb.h"
+#include "ConnectRosToGazeboTopic.pb.h"
 #include "Float32.pb.h"
 #include "vector2d.pb.h"
 
@@ -172,6 +173,7 @@ private:
         int n_wind = 0;
 
         void PropSpeedCallback(GzFloat32MsgPtr& ref){
+            gzdbg << "New prop speed ref set: " << (double)ref->data() <<std::endl;
             omega_ref = (double)ref->data();
             MotorDyn();
         }

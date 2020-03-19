@@ -45,6 +45,7 @@
 #include "VisVectorArray.pb.h"
 #include "WindSpeedBeta.pb.h"
 #include "ConnectGazeboToRosTopic.pb.h"
+#include "ConnectRosToGazeboTopic.pb.h"
 #include <Float32.pb.h>
 #include <iostream>
 #include <fstream>

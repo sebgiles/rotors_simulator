@@ -383,6 +383,8 @@
           <control>
             <cs name="flap_left">
                 <controlJoint>${namespace}/flap_left_joint</controlJoint>
+                <fromTopic>true</fromTopic>
+                <csRefTopic>flap_l1_pos</csRefTopic>
                 <radToCLift>1.6228 0</radToCLift>
                 <radToCDrag>0.1431 0.8085</radToCDrag>
                 <radToCPitch>0.0880 0</radToCPitch>
@@ -403,6 +405,8 @@
           <control>
             <cs name="flap_left">
                <controlJoint>${namespace}/flap_left_joint</controlJoint>
+               <fromTopic>true</fromTopic>
+               <csRefTopic>flap_l2_pos</csRefTopic>
                <radToCLift>1.6228 0</radToCLift>
                <radToCDrag>0.1431 0.8085</radToCDrag>
                <radToCPitch>0.0880 0</radToCPitch>
@@ -434,6 +438,8 @@
           <control>
             <cs name="aileron_left">
                 <controlJoint>${namespace}/aileron_left_joint</controlJoint>
+                <fromTopic>true</fromTopic>
+                <csRefTopic>ail_l_pos</csRefTopic>
                 <radToCLift>1.8386 0</radToCLift>
                 <radToCDrag>0.1053 0.5616</radToCDrag>
                 <radToCPitch>-0.0518 0</radToCPitch>
@@ -454,6 +460,8 @@
           <control>
             <cs name="aileron_left">
                <controlJoint>${namespace}/aileron_left_joint</controlJoint>
+               <fromTopic>true</fromTopic>
+               <csRefTopic>ail_l_pos</csRefTopic>
                <radToCLift>1.8386 0</radToCLift>
                <radToCDrag>0.1053 0.5616</radToCDrag>
                <radToCPitch>-0.0518 0</radToCPitch>
@@ -496,6 +504,8 @@
           <control>
             <cs name="flap_right">
                 <controlJoint>${namespace}/flap_right_joint</controlJoint>
+                <fromTopic>true</fromTopic>
+                <csRefTopic>flap_r1_pos</csRefTopic>
                 <radToCLift>1.6228 0</radToCLift>
                 <radToCDrag>0.1431 0.8085</radToCDrag>
                 <radToCPitch>0.0880 0</radToCPitch>
@@ -516,6 +526,8 @@
           <control>
             <cs name="flap_right">
                <controlJoint>${namespace}/flap_right_joint</controlJoint>
+               <fromTopic>true</fromTopic>
+               <csRefTopic>flap_r2_pos</csRefTopic>
                <radToCLift>1.6228 0</radToCLift>
                <radToCDrag>0.1431 0.8085</radToCDrag>
                <radToCPitch>0.0880 0</radToCPitch>
@@ -547,6 +559,8 @@
           <control>
             <cs name="aileron_right">
                 <controlJoint>${namespace}/aileron_right_joint</controlJoint>
+                <fromTopic>true</fromTopic>
+                <csRefTopic>ail_r_pos</csRefTopic>
                 <radToCLift>1.8386 0</radToCLift>
                 <radToCDrag>0.1053 0.5616</radToCDrag>
                 <radToCPitch>-0.0518 0</radToCPitch>
@@ -567,6 +581,8 @@
           <control>
             <cs name="aileron_right">
                <controlJoint>${namespace}/aileron_right_joint</controlJoint>
+               <fromTopic>true</fromTopic>
+               <csRefTopic>ail_r_pos</csRefTopic>
                <radToCLift>1.8386 0</radToCLift>
                <radToCDrag>0.1053 0.5616</radToCDrag>
                <radToCPitch>-0.0518 0</radToCPitch>
@@ -601,6 +617,8 @@
           <control>
             <cs name="elevator_left">
                 <controlJoint>${namespace}/elevator_joint</controlJoint>
+                <fromTopic>true</fromTopic>
+                <csRefTopic>elev_pos</csRefTopic>
                 <radToCLift>1.5676 0</radToCLift>
                 <radToCDrag>0 0</radToCDrag>
                 <radToCPitch>0 0</radToCPitch>
@@ -624,6 +642,8 @@
           <control>
             <cs name="elevator_right">
                 <controlJoint>${namespace}/elevator_joint</controlJoint>
+                <fromTopic>true</fromTopic>
+                <csRefTopic>elev_pos</csRefTopic>
                 <radToCLift>1.5676 0</radToCLift>
                 <radToCDrag>0 0</radToCDrag>
                 <radToCPitch>0 0</radToCPitch>
@@ -647,6 +667,8 @@
           <control>
             <cs name="rudder">
                 <controlJoint>${namespace}/rudder_joint</controlJoint>
+                <fromTopic>true</fromTopic>
+                <csRefTopic>rudd_pos</csRefTopic>
                 <radToCLift>2.2801 0</radToCLift>
                 <radToCDrag>0 0</radToCDrag>
                 <radToCPitch>0 0</radToCPitch>
@@ -659,127 +681,13 @@
   </gazebo>
 
   <gazebo>
-    <plugin filename="librotors_gazebo_mavlink_interface.so" name="gazebo_mavlink_interface">
-      <robotNamespace>${namespace}</robotNamespace>
-      <protocol_version>2.0</protocol_version>
-      <imuSubTopic>/imu</imuSubTopic>
-      <imu_rate>250</imu_rate>
-      <gpsSubTopic>/gps</gpsSubTopic>
-      <gpsGtSubTopic>/gps_gt</gpsGtSubTopic>
-      <lidarSubTopic></lidarSubTopic>
-      <opticalFlowSubTopic></opticalFlowSubTopic>
-      <mavlink_addr>INADDR_ANY</mavlink_addr>
-      <mavlink_udp_port>14560</mavlink_udp_port>
-      <serialEnabled>true</serialEnabled>
-      <serialDevice>${serial_device}</serialDevice>
-      <baudRate>921600</baudRate>
-      <qgc_addr>INADDR_ANY</qgc_addr>
-      <qgc_udp_port>14550</qgc_udp_port>
-      <hil_mode>true</hil_mode>
-      <hil_state_level>false</hil_state_level>
-      <enable_lockstep>false</enable_lockstep>
-      <use_tcp>false</use_tcp>
-      <motorSpeedCommandPubTopic>/command/motor_speed_old</motorSpeedCommandPubTopic>
-      <actuatorsPubTopic>/command/motor_speed</actuatorsPubTopic>
-      <linkName>${namespace}/base_link</linkName> <!-- reference link frame for airspeed and baro alt-->
-      <pitotPos>0.7 0 0.184</pitotPos>            <!-- pitot position wrt reference link -->
-      <baroPos>0.3 0 0.023</baroPos>              <!-- baro position wrt reference link -->
-      <wind name="wind">                          <!-- include wind in airspeed measurement -->
-        <topic>wind_base_link</topic>
-      </wind>
-      <control_channels>
-      <channel name="propeller">
-        <input_index>4</input_index>
-        <input_offset>1</input_offset>
-        <input_scaling>578.7</input_scaling><!-- rdps_slope/2  [rad/s]-->
-        <zero_position_disarmed>0</zero_position_disarmed>
-        <zero_position_armed>15.03</zero_position_armed>
-        <joint_control_type>gz_msg</joint_control_type>
-        <gztopic>prop_ref_0</gztopic>
-        <!--
-        <joint_name>${namespace}/propeller_P0_joint</joint_name>
-        <joint_control_pid>
-          <p>1</p>
-          <d>0.1</d>
-          <cmdMin>10</cmdMin>
-          <cmdMax>-10</cmdMax>
-        </joint_control_pid>
-        -->
-      </channel>
-      <channel name="aileron_left">
-        <input_index>0</input_index>
-        <input_offset>0</input_offset>
-        <input_scaling>0.3</input_scaling>
-        <zero_position_disarmed>0</zero_position_disarmed>
-        <zero_position_armed>0</zero_position_armed>
-        <joint_control_type>servo</joint_control_type>
-        <servo_params name="al_servo">
-          <slew>6</slew>
-        </servo_params>
-        <joint_name>${namespace}/aileron_left_joint</joint_name>
-      </channel>
-      <channel name="aileron_right">
-        <input_index>0</input_index>
-        <input_offset>0</input_offset>
-        <input_scaling>-0.3</input_scaling>
-        <zero_position_disarmed>0</zero_position_disarmed>
-        <zero_position_armed>0</zero_position_armed>
-        <joint_control_type>servo</joint_control_type>
-        <servo_params name="ar_servo">
-          <slew>6</slew>
-        </servo_params>
-        <joint_name>${namespace}/aileron_right_joint</joint_name>
-      </channel>
-      <channel name="elevator">
-        <input_index>2</input_index>
-        <input_offset>0</input_offset>
-        <input_scaling>0.3</input_scaling>
-        <zero_position_disarmed>0</zero_position_disarmed>
-        <zero_position_armed>0</zero_position_armed>
-        <joint_control_type>servo</joint_control_type>
-        <servo_params name="e_servo">
-          <slew>8.8</slew>
-        </servo_params>
-        <joint_name>${namespace}/elevator_joint</joint_name>
-      </channel>
-      <channel name="rudder">
-        <input_index>3</input_index>
-        <input_offset>-0.5</input_offset>
-        <input_scaling>-0.6</input_scaling>
-        <zero_position_disarmed>0</zero_position_disarmed>
-        <zero_position_armed>0</zero_position_armed>
-        <joint_control_type>servo</joint_control_type>
-        <servo_params name="r_servo">
-          <slew>6</slew>
-        </servo_params>
-        <joint_name>${namespace}/rudder_joint</joint_name>
-      </channel>
-      <channel name="flap_left">
-        <input_index>5</input_index>
-        <input_offset>0</input_offset>
-        <input_scaling>0.3</input_scaling>
-        <zero_position_disarmed>0</zero_position_disarmed>
-        <zero_position_armed>0</zero_position_armed>
-        <joint_control_type>servo</joint_control_type>
-        <servo_params name="fr_servo">
-          <slew>6</slew>
-        </servo_params>
-        <joint_name>${namespace}/flap_left_joint</joint_name>
-      </channel>
-      <channel name="flap_right">
-        <input_index>5</input_index>
-        <input_offset>0</input_offset>
-        <input_scaling>0.3</input_scaling>
-        <zero_position_disarmed>0</zero_position_disarmed>
-        <zero_position_armed>0</zero_position_armed>
-        <joint_control_type>servo</joint_control_type>
-        <servo_params name="fl_servo">
-          <slew>6</slew>
-        </servo_params>
-        <joint_name>${namespace}/flap_right_joint</joint_name>
-      </channel>
-    </control_channels>
-  </plugin>
+    <plugin filename="librotors_gazebo_fw_controller_interface.so" name="fw_controller_interface">
+        <robotNamespace>${namespace}</robotNamespace>
+        <commandAttitudeThrustSubTopic>/command/attitude</commandAttitudeThrustSubTopic>
+        <commandRateThrustSubTopic>/command/rate</commandRateThrustSubTopic>
+        <commandMotorSpeedSubTopic>/command/motor_speed</commandMotorSpeedSubTopic>
+        <motorSpeedCommandPubTopic>/gazebo/command/motor_speed</motorSpeedCommandPubTopic>
+    </plugin>
   </gazebo>
 
 </robot>
