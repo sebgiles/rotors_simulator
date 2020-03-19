@@ -175,7 +175,6 @@ private:
         void PropSpeedCallback(GzFloat32MsgPtr& ref){
             gzdbg << "New prop speed ref set: " << (double)ref->data() <<std::endl;
             omega_ref = (double)ref->data();
-            MotorDyn();
         }
 
         void MotorDyn(){
