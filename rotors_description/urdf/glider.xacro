@@ -15,7 +15,7 @@
   limitations under the License.
 -->
 
-<robot name="techpod_TJ" xmlns:xacro="http://ros.org/wiki/xacro">
+<robot name="glider" xmlns:xacro="http://ros.org/wiki/xacro">
   <!-- Global properties -->
   <xacro:property name="namespace" value="$(arg namespace)" />
   <xacro:property name="rotor_velocity_slowdown_sim" value="10" />
@@ -677,16 +677,6 @@
           </control>
         </segment>
       </airfoil>
-    </plugin>
-  </gazebo>
-
-  <gazebo>
-    <plugin filename="librotors_gazebo_fw_controller_interface.so" name="fw_controller_interface">
-        <robotNamespace>${namespace}</robotNamespace>
-        <commandAttitudeThrustSubTopic>/command/attitude</commandAttitudeThrustSubTopic>
-        <commandRateThrustSubTopic>/command/rate</commandRateThrustSubTopic>
-        <commandMotorSpeedSubTopic>/command/motor_speed</commandMotorSpeedSubTopic>
-        <motorSpeedCommandPubTopic>/gazebo/command/motor_speed</motorSpeedCommandPubTopic>
     </plugin>
   </gazebo>
 

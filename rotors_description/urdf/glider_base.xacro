@@ -15,12 +15,12 @@
   limitations under the License.
 -->
 
-<robot name="techpod_TJ" xmlns:xacro="http://ros.org/wiki/xacro">
+<robot name="glider" xmlns:xacro="http://ros.org/wiki/xacro">
 
   <xacro:include filename="$(find rotors_description)/urdf/component_snippets.xacro" />
 
   <!-- Instantiate fixed wing "mechanics" -->
-  <xacro:include filename="$(find rotors_description)/urdf/soaring.xacro" />
+  <xacro:include filename="$(find rotors_description)/urdf/glider.xacro" />
 
   <!-- Mount an ADIS16448 IMU. -->
   <xacro:default_imu namespace="${namespace}" parent_link="${namespace}/base_link" >
