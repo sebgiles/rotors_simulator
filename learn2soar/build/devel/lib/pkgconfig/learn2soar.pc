@@ -1,8 +1,0 @@
-prefix=/home/evalli/catkin_ws/src/rotors_simulator/learn2soar/build/devel
-
-Name: learn2soar
-Description: Description of learn2soar
-Version: 0.0.0
-Cflags: 
-Libs: -L${prefix}/lib 
-Requires: 
