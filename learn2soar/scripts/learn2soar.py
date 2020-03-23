@@ -2,13 +2,43 @@ import rospy
 import numpy as np
 import tf
 
+def saturate(val, limit):
+    return min(max(val, -limit), limit) # Saturate in [-1, 1]
+
 
 class Learn2Soar:
     def __init__(self):
         print("started")
-        self.tf_ = tf.TransformerROS()
+        self.tf = tf.TransformerROS()
+        self.roll_pitch_control_period = 0.01
+        self.alt_control_period = 0.1
+        self.theta_ref = 0.25
+        self.alt_integrator = 0
 
-    def doControl(self, pose, twist):
+    def update_sensor_data(self, pose, twist):
+        self.pose = pose
+        self.twist = twist
+
+    def do_alt_control(self):
+        alt = self.pose.position.z
+        alt_ref = 50
+
+        K_p_alt = 0.2 
+        K_i_alt = 0.001
+
+        err = (alt_ref - alt)
+
+        theta_limit = 0.5
+        self.alt_integrator = self.alt_integrator + err
+        self.alt_integrator = saturate(self.alt_integrator, theta_limit/K_i_alt)
+
+        theta_ref = -( K_p_alt * err + K_i_alt * self.alt_integrator )
+
+        self.theta_ref = saturate(theta_ref, theta_limit) # Saturate in [-1, 1]
+
+    def do_roll_pitch_control(self):
+        pose = self.pose
+        twist = self.twist
         x, y, z = pose.position.x, pose.position.y, pose.position.z
         quat = (pose.orientation.x,
                 pose.orientation.y,
@@ -16,7 +46,7 @@ class Learn2Soar:
                 pose.orientation.w)
 
         I_v = np.array([twist.linear.x, twist.linear.y, twist.linear.z, 1])
-        R = self.tf_.fromTranslationRotation((0,0,0), quat)
+        R = self.tf.fromTranslationRotation((0,0,0), quat).T
 
         airSpeed = (R.dot(I_v))[0]
         euler = tf.transformations.euler_from_quaternion(quat)
@@ -27,8 +57,8 @@ class Learn2Soar:
         K_p_r = 100
         K_p_p = 100
 
-        phi_ref   = - 0
-        theta_ref = - 0.1
+        phi_ref   = +0.3
+        theta_ref = self.theta_ref
 
         if airSpeed < 0.1: 
             ail_pos = 0
@@ -37,15 +67,15 @@ class Learn2Soar:
             ail_pos  = K_p_r / (airSpeed**2) * (phi_ref - phi)
             elev_pos = K_p_p / (airSpeed**2) * (theta_ref - theta)
 
-        limit = 2
+        limit = 1
 
         ail_pos = min(max(ail_pos, -limit), limit) # Saturate in [-1, 1]
         elev_pos = min(max(elev_pos, -limit), limit) # Saturate in [-1, 1]
 
 
-        print('r: {:.2f}\ta: {:.2f}\t\tp: {:.2f}\te: {:.2f}'.format(phi, ail_pos, theta, elev_pos))
+        print('z: \t{:.2f}\tv: \t{:.2f}\tr: \t{:.2f}\ta: \t{:.2f}\t\tp: \t{:.2f}\te: \t{:.2f}'.format(z, airSpeed, phi, ail_pos, theta, elev_pos))
 
-        prop = 0
+        prop = 10000
 
 
 
