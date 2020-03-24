@@ -1,3 +1,15 @@
+Learn to Soar
+===============
+This repo hosts code for "Learn to Soar", a project part of Spring 2020 "Perception and Learning for Robotics" Course at ETH Zurich.
+
+The aim of the project is to use reinforcement learning to achieve autonomous soaring of a fixed wing UAV.
+
+Authors: Sebastian N. Giles, Eugenio Valli
+
+Supervisors: Nicholas R.J Lawrance, David Rohr
+
+This project makes use of the RotorS MAV gazebo simulator provided by the ETH Zurich Autnomous Systems Lab.
+
 RotorS
 ===============
 
