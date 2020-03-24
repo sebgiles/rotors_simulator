@@ -61,15 +61,19 @@ class Learn2Soar:
 
         ## heading control
 
-        quat = (pose.orientation.x,
-                pose.orientation.y,
-                pose.orientation.z,
-                pose.orientation.w)
+        quat = (self.pose.orientation.x,
+                self.pose.orientation.y,
+                self.pose.orientation.z,
+                self.pose.orientation.w)
 
         euler = tf.transformations.euler_from_quaternion(quat)
         psi     = euler[2]  # heading
 
         psi_err = np.mod((psi_ref - psi) + np.pi , 2*np.pi) - np.pi
+
+        K_p_head = 1.0
+        K_i_head = 0.05
+        K_d_head = 1.0
 
         self.psi_integrator += psi_err*self.alt_control_period
         self.psi_integrator = saturate(self.psi_integrator, np.pi/2/K_i_head)
@@ -77,9 +81,7 @@ class Learn2Soar:
         d_psi_err = (psi_err - self.last_psi_err) / self.alt_control_period
         self.last_psi_err = psi_err
 
-        K_p_head = 1.0
-        K_i_head = 0.05
-        K_d_head = 1.0
+
 
         if self.last_wp_id != wp_id:
             d_psi_err = 0
