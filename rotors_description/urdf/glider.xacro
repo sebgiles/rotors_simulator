@@ -288,16 +288,16 @@
         <robotNamespace>${namespace}</robotNamespace>
         <windLayer>
           <layer name="layer1">
-            <altitude>10</altitude>
-            <windMeanNED>-5 0 0</windMeanNED>
+            <altitude>30</altitude>
+            <windMeanNED>0 0 0</windMeanNED>
           </layer>
           <layer name="layer2">
-            <altitude>25</altitude>
-            <windMeanNED>-6 0 0</windMeanNED>
+            <altitude>50</altitude>
+            <windMeanNED>-7 0 0</windMeanNED>
           </layer>
           <layer name="layer3">
-            <altitude>35</altitude>
-            <windMeanNED>-10 0 0</windMeanNED>
+            <altitude>70</altitude>
+            <windMeanNED>-14 0 0</windMeanNED>
           </layer>
         </windLayer>
         <findWind>
