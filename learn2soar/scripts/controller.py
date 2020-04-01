@@ -7,7 +7,7 @@ def saturate(val, limit):
     return min(max(val, -limit), limit) # Saturate in [-1, 1]
 
 
-class Learn2Soar:
+class Controller:
 
     def __init__(self):
         print("started")
@@ -46,7 +46,7 @@ class Learn2Soar:
 
 
         
-    def do_alt_control(self):
+    def do_high_level_control(self):
         
         ## waypoint navigation
 
@@ -132,7 +132,7 @@ class Learn2Soar:
         #print('z: {:.1f}\tph_ref: {:.1f}\tth_ref: {:.1f}\t'.format(alt, self.phi_ref, self.theta_ref))
         #print('elev: {:.2f}\tth: {:.2f}\tth_ref: {:.2f}\talt: {:.2f}'.format(self.elev, self.theta, self.theta_ref, alt))
 
-    def do_roll_pitch_control(self):
+    def do_low_level_control(self):
 
         pose = self.pose
         quat = (pose.orientation.x,
@@ -165,6 +165,7 @@ class Learn2Soar:
         ail_pos = 1 / airSpeed**2 * (K_p_r * phi_err + K_d_r * d_phi_err)
         ail_pos = saturate(ail_pos, ail_lim)
 
+
         ## Pitch controller 
 
         K_p_p = 250
@@ -181,6 +182,7 @@ class Learn2Soar:
             elev_pos = 1/np.cos(phi) * ( 1/airSpeed**2 * K_p_p * theta_err + elev_trim )
 
         elev_pos = saturate(elev_pos, elev_lim)
+        rudd_pos = 0
 
 
         ## Speed controller, very rough, upsgrade to PI if you care
@@ -209,7 +211,5 @@ class Learn2Soar:
         #   flap_r2_pos  
         #   prop_ref_0
         # ]
-
-        command = [0, elev_pos, ail_pos, -ail_pos, 0, 0 , 0, 0, self.prop]
-
-        return command
+        self.action = [ail_pos, elev_pos, rudd_pos, self.prop]
+        self.command = [0, elev_pos, ail_pos, -ail_pos, 0, 0 , 0, 0, self.prop]
