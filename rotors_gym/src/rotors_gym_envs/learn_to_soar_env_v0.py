@@ -1,6 +1,8 @@
 import numpy as np
 import copy
 
+import time
+
 import rospy
 import rospkg, roslaunch, os
 
@@ -8,10 +10,12 @@ from std_srvs.srv import Empty
 from std_msgs.msg import Float32
 from geometry_msgs.msg import Twist
 from gazebo_msgs.msg import ModelStates, ModelState
+from gazebo_msgs.srv import SetPhysicsProperties, SetPhysicsPropertiesRequest
 
 import gym
 from gym import utils, spaces
 from gym.utils import seeding
+
 
 # registration happens after the LearnToSoarEnv class definition
 from gym.envs.registration import register
@@ -35,7 +39,7 @@ class LearnToSoarEnv(gym.Env):
         # Launch the simulation with the given launchfile name
         rospack = rospkg.RosPack()
         package_path = rospack.get_path('rotors_gym')
-        launchfile = "learn_to_soar_v0.launch"
+        launchfile = "learn_to_soar_env.launch"
         full_launchfile_path = os.path.join(package_path, "launch", launchfile)
 
 
@@ -43,8 +47,24 @@ class LearnToSoarEnv(gym.Env):
         roslaunch.configure_logging(uuid)
         launch = roslaunch.parent.ROSLaunchParent(uuid, [full_launchfile_path])
         launch.start()
-        rospy.loginfo("started")
+
         rospy.init_node('gym', anonymous=True)
+
+        # # configure simulation settings
+        # set_physics_svc_name = '/gazebo/set_physics_properties'
+        # get_physics_svc_name = '/gazebo/get_physics_properties'
+        # rospy.wait_for_service(set_physics_svc_name)
+        # rospy.wait_for_service(get_physics_svc_name)
+        # self.set_physics = rospy.ServiceProxy(set_physics_svc_name, SetPhysicsProperties)
+        # self.get_physics = rospy.ServiceProxy(get_physics_svc_name, Empty)
+        # poop = self.get_physics()
+        # print(type(poop))
+        # print(poop)
+
+        # set_physics_request = SetPhysicsPropertiesRequest()
+        # set_physics_request.time_step = 0.004
+        # set_physics_request.max_update_rate = 0
+        # result = self.set_physics(set_physics_request)
 
         # to step simulation
         self._unpause = rospy.ServiceProxy('/gazebo/unpause_physics', Empty)
@@ -77,7 +97,8 @@ class LearnToSoarEnv(gym.Env):
         self.last_action = None
 
         self.time_step = 0.05
-
+        self.pausing = False
+        self.late_msgs = 0
         # ail, elev, rud, prop
         self.action_space = spaces.Box(low =np.array([-1.0, -1.0, -1.0, 0]),
                                        high=np.array([+1.0, +1.0, +1.0, 10000]),
@@ -87,15 +108,37 @@ class LearnToSoarEnv(gym.Env):
 
         rospy.wait_for_service('/gazebo/pause_physics')
         rospy.wait_for_service('/gazebo/unpause_physics')
+
         print('==== Environment is ready ====')
 
 
     def _gazebo_state_callback(self, msg):
         self.latest_state_msg = msg
+        if self.pausing:
+            self.late_msgs += 1
 
 
     def _freeze(self):
+
+        # rosclk_b4 = rospy.Time.now()
+        # wallclk_b4 = time.time()
+        self.pausing = True
+        self.late_msgs = 0
         self._pause()
+
+        # last = rosclk_b4
+        
+        # while 1:
+        #     now = rospy.Time.now()
+        #     if now == last: break
+        #     last = now
+        # if True or now.nsecs != rosclk_b4.nsecs:
+        #     print("Simtime to pause:\t{}\tLate msgs:\t{}".format(1e-6*(now-rosclk_b4), self.late_msgs))
+        
+        # self.late_msgs = 0
+        time.sleep(0.04)
+        print("Necro msgs:\t{}".format(self.late_msgs))
+    
         if self.latest_state_msg is not None:
             self.state.pose  = self.latest_state_msg.pose[-1]
             self.state.twist = self.latest_state_msg.twist[-1]
@@ -136,6 +179,7 @@ class LearnToSoarEnv(gym.Env):
     def step(self, action):
 
         self._apply_action(action)
+        self.pausing = False
         self._unpause()
         # wait as the simulation runs,
         # small annoyance: will continue sleeping if rosmaster dies

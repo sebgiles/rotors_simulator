@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 import gym
 from gym import wrappers
-import gym_gazebo
 import time
 import numpy
 import random
 import time
 
-import rotors_gym_envs.learn_to_soar_v0
+import rotors_gym_envs.learn_to_soar_env_v0
 
 # contains our contoller, using it as a policy to test environment
 from controller import Controller
@@ -17,12 +16,10 @@ def main():
     env = gym.make('LearnToSoar-v0')
 
     cntr = Controller()
-    time_step = 0.01
-    env.time_step = time_step
-    cntr.roll_pitch_control_period = time_step
+    cntr.roll_pitch_control_period = 0.05
     total_episodes = 10
     episode_duration = 4.0 #seconds
-    steps_per_episode = int(episode_duration/time_step)
+    steps_per_episode = int(episode_duration/env.time_step)
 
     for x in range(total_episodes):
 
@@ -34,7 +31,7 @@ def main():
             cntr.do_low_level_control()
             action = cntr.action
             observation, reward, done, info = env.step(action)
-
+        print("Final state {}".format(cntr.phi))
 
 if __name__ == '__main__':
     
