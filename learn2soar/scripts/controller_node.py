@@ -3,7 +3,7 @@
 import rospy
 from gazebo_msgs.msg import ModelStates
 from std_msgs.msg import Float32
-import learn2soar as l2s
+from controller import Controller
 
 cs_topics = [  "/uav_1/rudd_pos",      
                 "/uav_1/elev_pos",      
@@ -22,7 +22,7 @@ class Learn2SoarROSInterface:
     cs_pubs = []
 
     def __init__(self):
-        self.logic = l2s.Learn2Soar()
+        self.logic = Controller()
         rospy.init_node('rotors_gazebo')
 
         rospy.Subscriber("/gazebo/model_states", ModelStates, self.new_sensor_data_callback, queue_size=1)
@@ -38,10 +38,11 @@ class Learn2SoarROSInterface:
         self.logic.update_sensor_data(msg.pose[-1], msg.twist[-1])
 
     def do_alt_control_callback(self,event):
-        self.logic.do_alt_control()
+        self.logic.do_high_level_control()
 
     def do_control_callback(self, event):
-        command = self.logic.do_roll_pitch_control()
+        self.logic.do_low_level_control()
+        command = self.logic.command
         for i in range(len(command)):
             self.cs_pubs[i].publish(Float32(command[i]))
 
