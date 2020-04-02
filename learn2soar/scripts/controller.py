@@ -151,8 +151,8 @@ class Controller:
             
         ## Roll controller
 
-        K_p_r = 600
-        K_d_r = 250
+        K_p_r = 400
+        K_d_r = 100
         ail_lim = 0.5*np.pi/2
 
         phi_ref = self.phi_ref
