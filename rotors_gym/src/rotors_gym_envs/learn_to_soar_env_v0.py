@@ -136,8 +136,9 @@ class LearnToSoarEnv(gym.Env):
         #     print("Simtime to pause:\t{}\tLate msgs:\t{}".format(1e-6*(now-rosclk_b4), self.late_msgs))
         
         # self.late_msgs = 0
-        time.sleep(0.04)
-        print("Necro msgs:\t{}".format(self.late_msgs))
+        
+        # time.sleep(0.04)
+        # print("Necro msgs:\t{}".format(self.late_msgs))
     
         if self.latest_state_msg is not None:
             self.state.pose  = self.latest_state_msg.pose[-1]

@@ -26,7 +26,7 @@
                         <curve_0>
                             <axes>
                                 <x_axis>
-                                    <field>pose/12/position/x</field>
+                                    <field>pose/4/position/x</field>
                                     <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>
@@ -39,7 +39,7 @@
                                     <type>gazebo_msgs/ModelStates</type>
                                 </x_axis>
                                 <y_axis>
-                                    <field>pose/12/position/y</field>
+                                    <field>pose/4/position/y</field>
                                     <field_type>0</field_type>
                                     <scale>
                                         <absolute_maximum>1000</absolute_maximum>

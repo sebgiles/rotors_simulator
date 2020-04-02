@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import rospy
 import numpy as np
+from std_msgs.msg import Float32
 import tf
 
 def saturate(val, limit):
@@ -37,7 +38,7 @@ class Controller:
         self.theta = None
         self.phi = None
 
-        self.airSpeed = None
+        self.airSpeed = 0.01
 
 
     def update_sensor_data(self, pose, twist):
@@ -50,12 +51,15 @@ class Controller:
         
         ## waypoint navigation
 
-        wp_int = np.pi*2./3. # waypoint interval
-        traj_radius = 100
+        wp_int = np.pi / 6. # waypoint interval
+        traj_radius = 200
 
         x = self.pose.position.x
         y = self.pose.position.y
         ang_position = np.arctan2(y,x)
+
+        x = self.pose.position.x
+        y = self.pose.position.y
 
         # get location of next waypoint
         wp_id = np.floor(ang_position/wp_int) + 1
@@ -64,7 +68,12 @@ class Controller:
         d = np.linalg.norm([wp_x-x, wp_y-y])
         wp_dir = np.arctan2(wp_y-y, wp_x-x)
 
-        self.alt_ref = 40. + 15. * x / 50.
+        pub_x = rospy.Publisher('glider_waypoint_x', Float32, queue_size=1)
+        pub_y = rospy.Publisher('glider_waypoint_y', Float32, queue_size=1)
+        pub_x.publish(Float32(wp_x))
+        pub_y.publish(Float32(wp_y))
+
+        self.alt_ref = 50.
 
         alt = self.pose.position.z
         alt_err = (self.alt_ref - alt)
@@ -127,8 +136,8 @@ class Controller:
 
         radius = np.sqrt(x**2 + y**2)
         
-        print('v: {:.1f}\tpr: {:.1f}\tz: {:.1f}\trho: {:.1f}\td: {:.1f}\tps_err: {:.1f}\tph_err: {:.1f}\tth_ref: {:.1f}\tth: {:.1f}\t'\
-              .format(self.airSpeed,self.prop, alt, radius, d, psi_err, self.last_phi_err, self.theta_ref, self.theta))
+        # print('v: {:.1f}\tpr: {:.1f}\tz: {:.1f}\trho: {:.1f}\td: {:.1f}\tps_err: {:.1f}\tph_err: {:.1f}\tth_ref: {:.1f}\tth: {:.1f}\t'\
+        #       .format(self.airSpeed,self.prop, alt, radius, d, psi_err, self.last_phi_err, self.theta_ref, self.theta))
         #print('z: {:.1f}\tph_ref: {:.1f}\tth_ref: {:.1f}\t'.format(alt, self.phi_ref, self.theta_ref))
         #print('elev: {:.2f}\tth: {:.2f}\tth_ref: {:.2f}\talt: {:.2f}'.format(self.elev, self.theta, self.theta_ref, alt))
 
@@ -187,7 +196,7 @@ class Controller:
 
         ## Speed controller, very rough, upsgrade to PI if you care
         k_p_v = 5000
-        v_ref = 12
+        v_ref = 20
         prop_ff = 900
         self.prop = prop_ff + k_p_v * (v_ref - airSpeed)
         self.prop = max(0, min(10000, self.prop))
