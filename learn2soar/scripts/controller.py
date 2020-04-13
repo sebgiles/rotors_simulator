@@ -13,11 +13,11 @@ class Controller:
     def __init__(self):
         print("started")
         self.tf = tf.TransformerROS()
-        self.roll_pitch_control_period = 0.01
-        self.alt_control_period = 0.1
+        self.low_level_control_period = 0.05
+        self.high_level_control_period = 0.1
         
         self.last_phi_err = 0
-
+        self.last_theta_err = 0
         self.alt = None
         self.alt_ref = 50
         self.last_alt_err = 0
@@ -40,6 +40,8 @@ class Controller:
 
         self.airSpeed = 0.01
 
+        self.pose = None
+        self.twist = None
 
     def update_sensor_data(self, pose, twist):
         self.pose = pose
@@ -49,6 +51,8 @@ class Controller:
         
     def do_high_level_control(self):
         
+        if self.pose is None or self.twist is None: return
+
         ## waypoint navigation
 
         wp_int = np.pi / 6. # waypoint interval
@@ -118,7 +122,10 @@ class Controller:
         self.last_curv = curv
         g = 9.81
         #K_p_head = 0.8
-        phi_limit = np.arccos (18 * g / self.airSpeed**2)
+        if self.airSpeed > 0.01: 
+            phi_limit = np.arccos (18 * g / self.airSpeed**2)
+        else:
+            phi_limit = 0.01
 
         #psi_dot_ref = K_p_head * psi_err 
         psi_dot_ref = self.airSpeed * curv
@@ -136,12 +143,15 @@ class Controller:
 
         radius = np.sqrt(x**2 + y**2)
         
-        # print('v: {:.1f}\tpr: {:.1f}\tz: {:.1f}\trho: {:.1f}\td: {:.1f}\tps_err: {:.1f}\tph_err: {:.1f}\tth_ref: {:.1f}\tth: {:.1f}\t'\
-        #       .format(self.airSpeed,self.prop, alt, radius, d, psi_err, self.last_phi_err, self.theta_ref, self.theta))
+        print('v: {:.1f}\tpr: {:.1f}\tz: {:.1f}\trho: {:.1f}\td: {:.1f}\tps_err: {:.1f}\tph_err: {:.1f}\tth_ref: {:.1f}\tth: {:.1f}\t'\
+              .format(self.airSpeed,self.prop, alt, radius, d, psi_err, self.last_phi_err, self.theta_ref, self.theta))
         #print('z: {:.1f}\tph_ref: {:.1f}\tth_ref: {:.1f}\t'.format(alt, self.phi_ref, self.theta_ref))
         #print('elev: {:.2f}\tth: {:.2f}\tth_ref: {:.2f}\talt: {:.2f}'.format(self.elev, self.theta, self.theta_ref, alt))
 
     def do_low_level_control(self):
+
+        if self.pose is None or self.twist is None: 
+            return False
 
         pose = self.pose
         quat = (pose.orientation.x,
@@ -168,7 +178,7 @@ class Controller:
         phi     = euler[0]
         phi_err = phi_ref - phi
 
-        d_phi_err = (phi_err - self.last_phi_err ) / self.roll_pitch_control_period
+        d_phi_err = (phi_err - self.last_phi_err ) / self.low_level_control_period
         self.last_phi_err = phi_err
 
         ail_pos = 1 / airSpeed**2 * (K_p_r * phi_err + K_d_r * d_phi_err)
@@ -184,7 +194,7 @@ class Controller:
         theta_ref = self.theta_ref 
         theta     = euler[1]
         theta_err = theta_ref - theta
-
+        self.last_theta_err = theta_err
         if np.pi/2 - np.abs(phi) < 0.001:
             elev_pos = 0 
         else:
@@ -193,14 +203,12 @@ class Controller:
         elev_pos = saturate(elev_pos, elev_lim)
         rudd_pos = 0
 
-
         ## Speed controller, very rough, upsgrade to PI if you care
-        k_p_v = 5000
-        v_ref = 20
-        prop_ff = 900
-        self.prop = prop_ff + k_p_v * (v_ref - airSpeed)
-        self.prop = max(0, min(10000, self.prop))
-
+        # k_p_v = 5000
+        # v_ref = 18
+        # prop_ff = 900
+        # self.prop = prop_ff + k_p_v * (v_ref - airSpeed)
+        # self.prop = max(0, min(10000, self.prop))
 
         ## Useful values to access throughout in the class 
         self.theta = theta
@@ -221,4 +229,6 @@ class Controller:
         #   prop_ref_0
         # ]
         self.action = [ail_pos, elev_pos, rudd_pos, self.prop]
-        self.command = [0, elev_pos, ail_pos, -ail_pos, 0, 0 , 0, 0, self.prop]
+        self.command = [elev_pos, ail_pos, -ail_pos, self.prop]
+
+        return True

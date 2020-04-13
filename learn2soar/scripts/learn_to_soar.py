@@ -1,43 +1,65 @@
-#!/usr/bin/env python
-import gym
-from gym import wrappers
-import time
-import numpy
-import random
-import time
-import rospy
+#!/usr/bin/env python3
+from stable_baselines.common.policies import MlpPolicy
+from stable_baselines.common import make_vec_env
+from stable_baselines import A2C
 
-import rotors_gym_envs.learn_to_soar_env_v0
+import rotors_gym_envs.learn_to_soar_env_v2
 
-# contains our contoller, using it as a policy to test environment
-from controller import Controller
+from rospy.exceptions import ROSInterruptException
+from rospy.service    import ServiceException
 
+from stable_baselines.common.callbacks import BaseCallback
+import tensorflow as tf
 
-def main():
-    env = gym.make('LearnToSoar-v0')
+env = make_vec_env('LearnToSoar-v2')
 
-    cntr = Controller()
-    cntr.roll_pitch_control_period = 0.05
-    total_episodes = 5
-    episode_duration = 60.0 #seconds
-    steps_per_episode = int(episode_duration/env.time_step)
+# TODO: hide this ugly piece of code
+class TensorboardCallback(BaseCallback):
+    """
+    Custom callback for plotting additional values in tensorboard.
+    """
+    def __init__(self, verbose=0):
+        super(TensorboardCallback, self).__init__(verbose)
 
-    for x in range(total_episodes):
+    def _on_rollout_end(self) -> bool:
+        myenv = env.envs[0]
+        summary = tf.Summary(value=[])
+        self.locals['writer'].add_summary(summary, self.num_timesteps)
+        summary = tf.Summary(value=[
+            tf.Summary.Value(tag='env/extracted_energy', simple_value=myenv.extracted_energy),
+            tf.Summary.Value(tag='env/positive_power',   simple_value=myenv.positive_power),
+            tf.Summary.Value(tag='env/duration',         simple_value=myenv.duration),
+            tf.Summary.Value(tag='env/terminal_energy',  simple_value=myenv.terminal_energy),
+            tf.Summary.Value(tag='env/final_altitude',   simple_value=myenv.final_altitude),
+            tf.Summary.Value(tag='env/final_airspeed',   simple_value=myenv.final_airspeed),
+            ])
+        self.locals['writer'].add_summary(summary, self.num_timesteps)
+        return True
 
-        observation, done = env.reset()
-        print('==== EPISODE ' + str(x) +' ====')
-        for i in range(steps_per_episode):
-            if done: break
-            cntr.update_sensor_data(observation[0], observation[1])
-            if i%5 == 0:
-                cntr.do_high_level_control()
-                print("Final state {}".format(cntr.phi))
-            cntr.do_low_level_control()
-            action = cntr.action
-            observation, reward, done, info = env.step(action)
-        
+model_filename = "a2c_24_soar_autosave"
+tensorboard_filename = "./tb_l2s_24/"
 
-if __name__ == '__main__':
-    
-    main()
+# Use #1 to create a new model, #2 to reload the model from the file
+model = A2C(MlpPolicy,              # 1 
+#model = A2C.load(model_filename,   # 2
+            env, 
+            tensorboard_log=tensorboard_filename,
+            verbose = 1,
+            learning_rate=5e-3,
+            gamma=0.9, 
+            n_steps=2, 
+            vf_coef=0.25, 
+            ent_coef=0.01, 
+            max_grad_norm=0.5,
+            alpha=0.99, 
+            epsilon=5e-2, 
+            lr_schedule='constant'
+        )
+try:
+    model.learn(total_timesteps=1000000, callback=TensorboardCallback())
+except (ROSInterruptException, ServiceException):
+    print("Interrupted, saving model")
+    model.save(model_filename)
+    exit()
 
+model.save(model_filename)
