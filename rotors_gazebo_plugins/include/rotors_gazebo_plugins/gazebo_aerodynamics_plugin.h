@@ -147,13 +147,20 @@ private:
                                 wind->wind_grad_ned().zz());
             lock.unlock();
         }
-
+        /* instead of
         V3D GetWind(V3D p_cp){
-            std::unique_lock<std::mutex> lock(wind_lock);   //necessary? atomic V3D?
-            V3D wind_local = wind_ned + wind_grad_ned*(p_cp-pos_ned);
-            //V3D wind_local = wind_grad_ned*(p_cp-pos_ned);
-            lock.unlock();
-            return wind_local;
+                    std::unique_lock<std::mutex> lock(wind_lock);   //necessary? atomic V3D?
+                    V3D wind_local = wind_ned + wind_grad_ned*(p_cp-pos_ned);
+                    //V3D wind_local = wind_grad_ned*(p_cp-pos_ned);
+                    lock.unlock();
+                    return wind_local;
+        }
+        */
+
+        /* use this workaround */
+        V3D GetWind(V3D p_cp){
+                    V3D wind_local = V3D(0, -0.1875*(p_cp.Z()-10.0),0);
+                    return wind_local;
         }
     };
 

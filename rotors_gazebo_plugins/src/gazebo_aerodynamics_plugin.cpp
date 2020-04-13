@@ -700,54 +700,58 @@ void GazeboAerodynamics::OnUpdate()
             V3D force  = lift + drag;
             V3D torque = moment;
 
+            ///gzdbg << i << "force: " << force << "cp: " << cp << "torque: " << torque << "\n";
+
             // correct for nan or inf
             force.Correct();
             cp.Correct();
             torque.Correct();
+
+            //gzdbg << i << "force: " << force << "cp: " << cp << "torque: " << torque << "\n";
 
             // apply forces cp
             segments_[i].act_link->AddForceAtWorldPosition(force, cp);
             segments_[i].act_link->AddTorque(torque);
 
             // visualization
-            if (segments_[i].vector_vis_array_pub) {
+            // if (segments_[i].vector_vis_array_pub) {
 
-                // world to body frame
-                V3D _B_wind = pose.Rot().RotateVectorReverse(segments_[i].wind_cp);
-                V3D _B_slipstream = pose.Rot().RotateVectorReverse(segments_[i].v_ind_cp);
-                V3D _B_lift = pose.Rot().RotateVectorReverse(lift);
-                V3D _B_drag = pose.Rot().RotateVectorReverse(drag);
-                V3D _B_torque = pose.Rot().RotateVectorReverse(torque);
-                V3D _B_force = pose.Rot().RotateVectorReverse(force);
+            //     // world to body frame
+            //     V3D _B_wind = pose.Rot().RotateVectorReverse(segments_[i].wind_cp);
+            //     V3D _B_slipstream = pose.Rot().RotateVectorReverse(segments_[i].v_ind_cp);
+            //     V3D _B_lift = pose.Rot().RotateVectorReverse(lift);
+            //     V3D _B_drag = pose.Rot().RotateVectorReverse(drag);
+            //     V3D _B_torque = pose.Rot().RotateVectorReverse(torque);
+            //     V3D _B_force = pose.Rot().RotateVectorReverse(force);
 
-                float r,g,b;
-                V3D P_start = segments_[i].cp;
-                V3D P_vec;
+            //     float r,g,b;
+            //     V3D P_start = segments_[i].cp;
+            //     V3D P_vec;
 
-                for(int j = 0; j < segments_[i].vec_vis.size(); j++){
+            //     for(int j = 0; j < segments_[i].vec_vis.size(); j++){
 
-                    switch (j) {
-                      case 0: r = 1 - w_af; g = w_af; b = 0; P_vec = _B_lift;       break;
-                      case 1: r = 1 - w_af; g = w_af; b = 0; P_vec = _B_drag;       break;
-                      case 2: r = 1 - w_af; g = w_af; b = 0; P_vec = _B_torque;     break;
-                      case 3: r = 1 - w_af; g = w_af; b = 0; P_vec = _B_force;      break;
-                      case 4: r = 0;        g = 1;    b = 1; P_vec = _B_wind;       break;
-                      case 5: r = 0;        g = 0;    b = 1; P_vec = _B_slipstream; break;
-                    }
+            //         switch (j) {
+            //           case 0: r = 1 - w_af; g = w_af; b = 0; P_vec = _B_lift;       break;
+            //           case 1: r = 1 - w_af; g = w_af; b = 0; P_vec = _B_drag;       break;
+            //           case 2: r = 1 - w_af; g = w_af; b = 0; P_vec = _B_torque;     break;
+            //           case 3: r = 1 - w_af; g = w_af; b = 0; P_vec = _B_force;      break;
+            //           case 4: r = 0;        g = 1;    b = 1; P_vec = _B_wind;       break;
+            //           case 5: r = 0;        g = 0;    b = 1; P_vec = _B_slipstream; break;
+            //         }
 
-                    segments_[i].vec_vis[j]->mutable_color()->set_x(r);
-                    segments_[i].vec_vis[j]->mutable_color()->set_y(g);
-                    segments_[i].vec_vis[j]->mutable_color()->set_z(b);
-                    segments_[i].vec_vis[j]->mutable_startpoint()->set_x(P_start.X());
-                    segments_[i].vec_vis[j]->mutable_startpoint()->set_y(P_start.Y());
-                    segments_[i].vec_vis[j]->mutable_startpoint()->set_z(P_start.Z());
-                    segments_[i].vec_vis[j]->mutable_vector()->set_x(P_vec.X());
-                    segments_[i].vec_vis[j]->mutable_vector()->set_y(P_vec.Y());
-                    segments_[i].vec_vis[j]->mutable_vector()->set_z(P_vec.Z());
-                }
+            //         segments_[i].vec_vis[j]->mutable_color()->set_x(r);
+            //         segments_[i].vec_vis[j]->mutable_color()->set_y(g);
+            //         segments_[i].vec_vis[j]->mutable_color()->set_z(b);
+            //         segments_[i].vec_vis[j]->mutable_startpoint()->set_x(P_start.X());
+            //         segments_[i].vec_vis[j]->mutable_startpoint()->set_y(P_start.Y());
+            //         segments_[i].vec_vis[j]->mutable_startpoint()->set_z(P_start.Z());
+            //         segments_[i].vec_vis[j]->mutable_vector()->set_x(P_vec.X());
+            //         segments_[i].vec_vis[j]->mutable_vector()->set_y(P_vec.Y());
+            //         segments_[i].vec_vis[j]->mutable_vector()->set_z(P_vec.Z());
+            //     }
 
-                segments_[i].vector_vis_array_pub->Publish(segments_[i].vector_vis_array_msg);
-            }
+            //     segments_[i].vector_vis_array_pub->Publish(segments_[i].vector_vis_array_msg);
+            // } 
         }
     }
 
