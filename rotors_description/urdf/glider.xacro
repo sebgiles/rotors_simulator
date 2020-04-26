@@ -29,7 +29,7 @@
   <xacro:property name="PI" value="3.1415926535897931" />
 
   <!-- Component masses -->
-  <xacro:property name="mass_fuselage" value="3.124" /> <!-- [kg] 3.124-->
+  <xacro:property name="mass_fuselage" value="2.5" /> <!-- [kg] 3.124-->
   <xacro:property name="mass_aileron" value="0.01" /> <!-- [kg] -->
   <xacro:property name="mass_flap" value="0.01" /> <!-- [kg] -->
   <xacro:property name="mass_elevator" value="0.01" /> <!-- [kg] -->
@@ -131,7 +131,7 @@
     color="${body_color}"
     use_mesh_file="${use_mesh}"
     mesh_file="${body_mesh_file}">
-    <origin xyz="0.16 0 0.10" rpy="0 0 0" />
+    <origin xyz="0.13 0 0.10" rpy="0 0 0" />
     <xacro:insert_block name="body_inertia" />
   </xacro:fixed_wing_base_macro>
 
@@ -343,12 +343,12 @@
       <aeroForcesVis>aero_force_vis_0</aeroForcesVis>
       <body>
         <element>
-          <aBdyXX>0.0176</aBdyXX>
-          <aBdyYY>0.0640</aBdyYY>
-          <aBdyZZ>0.0560</aBdyZZ>
+          <aBdyXX>0.002</aBdyXX>
+          <aBdyYY>0.04</aBdyYY>
+          <aBdyZZ>0.04</aBdyZZ>
           <forward>1 0 0</forward>
           <upward>0 0 1</upward>
-          <cp>0.16 0.0 0.05</cp>
+          <cp>0.13 0.0 0.1</cp>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -361,7 +361,7 @@
           <cp>0.175 0.075 0.115</cp>
           <seg_area>0.029</seg_area>
           <seg_chord>0.194</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -372,7 +372,7 @@
           <cp>0.172 0.265 0.115</cp>
           <seg_area>0.042</seg_area>
           <seg_chord>0.183</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -394,7 +394,7 @@
           <cp>0.169 0.495 0.115</cp>
           <seg_area>0.039</seg_area>
           <seg_chord>0.170</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -416,7 +416,7 @@
           <cp>0.165 0.715 0.115</cp>
           <seg_area>0.033</seg_area>
           <seg_chord>0.157</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -427,7 +427,7 @@
           <cp>0.162 0.907 0.115</cp>
           <seg_area>0.026</seg_area>
           <seg_chord>0.146</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -449,7 +449,7 @@
           <cp>0.160 1.083 0.115</cp>
           <seg_area>0.024</seg_area>
           <seg_chord>0.136</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -471,7 +471,7 @@
           <cp>0.157 1.234 0.115</cp>
           <seg_area>0.016</seg_area>
           <seg_chord>0.127</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -482,7 +482,7 @@
           <cp>0.175 -0.075 0.115</cp>
           <seg_area>0.029</seg_area>
           <seg_chord>0.194</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -493,7 +493,7 @@
           <cp>0.172 -0.265 0.115</cp>
           <seg_area>0.042</seg_area>
           <seg_chord>0.183</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -515,7 +515,7 @@
           <cp>0.169 -0.495 0.115</cp>
           <seg_area>0.039</seg_area>
           <seg_chord>0.170</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -537,7 +537,7 @@
           <cp>0.165 -0.715 0.115</cp>
           <seg_area>0.033</seg_area>
           <seg_chord>0.157</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -548,7 +548,7 @@
           <cp>0.162 -0.907 0.115</cp>
           <seg_area>0.026</seg_area>
           <seg_chord>0.146</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -570,7 +570,7 @@
           <cp>0.160 -1.083 0.115</cp>
           <seg_area>0.024</seg_area>
           <seg_chord>0.136</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -592,7 +592,7 @@
           <cp>0.157 -1.234 0.115</cp>
           <seg_area>0.016</seg_area>
           <seg_chord>0.127</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_wing.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_wing.yaml</aeroParamsYAML>
           <wind name="wind">
             <topic>wind_base_link</topic>
           </wind>
@@ -603,7 +603,7 @@
           <cp>-0.484 0.165 0.27</cp>
           <seg_area>0.0475</seg_area>
           <seg_chord>0.144</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_tail_h.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_tail_h.yaml</aeroParamsYAML>
           <indVel name="prop0">
             <topic>prop_slpstr_0</topic>
           </indVel>
@@ -628,7 +628,7 @@
           <cp>-0.484 -0.165 0.27</cp>
           <seg_area>0.0475</seg_area>
           <seg_chord>0.144</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_tail_h.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_tail_h.yaml</aeroParamsYAML>
           <indVel name="prop0">
             <topic>prop_slpstr_0</topic>
           </indVel>
@@ -651,9 +651,10 @@
           <forward>1 0 0</forward>
           <upward>0 -1 0</upward>
           <cp>-0.413 0.0 0.117</cp>
-          <seg_area>0.044</seg_area>
+          <!--<seg_area>0.044</seg_area>-->
+          <seg_area>0.080</seg_area>
           <seg_chord>0.1525</seg_chord>
-          <aeroParamsYAML>${yaml_path}/techpod_TJ_tail_v.yaml</aeroParamsYAML>
+          <aeroParamsYAML>${yaml_path}/techpod_PLR_tail_v.yaml</aeroParamsYAML>
           <indVel name="prop0">
             <topic>prop_slpstr_0</topic>
           </indVel>
