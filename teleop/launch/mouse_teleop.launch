@@ -1,0 +1,18 @@
+<launch>
+  <arg name="topic"     default="teleop_mouse_cmd"/>
+  <arg name="frequency" default="0.0"/>
+  <arg name="scale"     default="1.0"/>
+  <arg name="plot"      default="false"/>
+
+  <node pkg="teleop" type="mouse_teleop.py" name="mouse_teleop">
+    <param name="frequency" type="double" value="$(arg frequency)" />
+    <param name="scale"     type="double" value="$(arg scale)" />
+
+    <remap from="teleop_mouse_cmd" to="$(arg topic)"/>
+  </node>
+
+  <group if="$(arg plot)">
+    <node pkg="rqt_plot" type="rqt_plot" name="rqt_plot"
+          args="$(arg topic)/h $(arg topic)/v"/>
+  </group>
+</launch>
