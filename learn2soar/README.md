@@ -14,6 +14,16 @@
   controller and the training. Then run `./kill.sh` to kill ROS and Gazebo 
   (`Ctrl-c` can leave some processes behind).
 
+# Mouse Control
+- You need 3 terminals
+- Open all the terminals to this directory (`learn2soar`)
+- In terminal 1 run `./simulate.sh` to start ROS and the gazebo simulation with 
+  a plane in it
+- In terminal 2 run `rosrun learn2soar mouse_to_soar.py` to start the mouse command to control surface translator
+- In terminal 3 run `rosrun teleop mouse_teleop.py` to start the mouse control GUI
+
+
+
 # useful cmds
 
 roslaunch rotors_gazebo fixed_wing_hil.launch verbose:=true uav_name:=glider
