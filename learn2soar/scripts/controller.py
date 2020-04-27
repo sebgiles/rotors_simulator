@@ -11,7 +11,6 @@ def saturate(val, limit):
 class Controller:
 
     def __init__(self):
-        print("started")
         self.tf = tf.TransformerROS()
         self.low_level_control_period = 0.05
         self.high_level_control_period = 0.1
@@ -80,6 +79,7 @@ class Controller:
         self.alt_ref = 50.
 
         alt = self.pose.position.z
+
         alt_err = (self.alt_ref - alt)
 
         K_p_alt = 0.10
@@ -148,10 +148,17 @@ class Controller:
         #print('z: {:.1f}\tph_ref: {:.1f}\tth_ref: {:.1f}\t'.format(alt, self.phi_ref, self.theta_ref))
         #print('elev: {:.2f}\tth: {:.2f}\tth_ref: {:.2f}\talt: {:.2f}'.format(self.elev, self.theta, self.theta_ref, alt))
 
-    def do_low_level_control(self):
+    def do_low_level_control(self, dt):
 
         if self.pose is None or self.twist is None: 
+            print("control called too early")
             return False
+        
+        dt = dt.to_sec()
+
+        if dt < 0.5*self.low_level_control_period:
+            return False
+
 
         pose = self.pose
         quat = (pose.orientation.x,
@@ -162,46 +169,62 @@ class Controller:
 
         twist = self.twist
         R = self.tf.fromTranslationRotation((0,0,0), quat).T
+
         I_v = np.array([twist.linear.x, twist.linear.y, twist.linear.z, 1])
-        airSpeed = np.dot(R, I_v)[0]
+
+        z = pose.position.z - 10
+        wind = np.array([0,0,0, 0], dtype=float)
+        shear_top = 15.0
+        wind_grad = -1.0
+
+        wind[1] = wind_grad * max(min(z, shear_top), 0.0)
+
+
+        airSpeed = np.dot(R, I_v - wind)[0] 
+
         if airSpeed < 0.1: 
             airSpeed = 0.1
 
             
         ## Roll controller
 
-        K_p_r = 400
-        K_d_r = 100
+        K_p_r = 400.
+        K_d_r = 50.
         ail_lim = 0.5*np.pi/2
 
         phi_ref = self.phi_ref
         phi     = euler[0]
         phi_err = phi_ref - phi
 
-        d_phi_err = (phi_err - self.last_phi_err ) / self.low_level_control_period
+        d_phi_err = (phi_err - self.last_phi_err ) / dt
         self.last_phi_err = phi_err
-
         ail_pos = 1 / airSpeed**2 * (K_p_r * phi_err + K_d_r * d_phi_err)
         ail_pos = saturate(ail_pos, ail_lim)
 
 
         ## Pitch controller 
 
-        K_p_p = 250
+        K_p_p = 250.
+        K_d_p = 0.
         elev_trim = -0.05
         elev_lim = 0.3*np.pi/2
 
         theta_ref = self.theta_ref 
         theta     = euler[1]
         theta_err = theta_ref - theta
+
+        d_theta_err = (theta_err - self.last_theta_err ) / dt
         self.last_theta_err = theta_err
+
         if np.pi/2 - np.abs(phi) < 0.001:
-            elev_pos = 0 
+            elev_pos = 0. 
         else:
-            elev_pos = 1/np.cos(phi) * ( 1/airSpeed**2 * K_p_p * theta_err + elev_trim )
+            elev_pos =  1/np.cos(phi) * (elev_trim +
+                            1/airSpeed**2 * (K_p_p * theta_err + K_d_p * d_theta_err))
 
         elev_pos = saturate(elev_pos, elev_lim)
-        rudd_pos = 0
+
+        rudd_pos = 0.
 
         ## Speed controller, very rough, upsgrade to PI if you care
         # k_p_v = 5000
@@ -216,6 +239,7 @@ class Controller:
         self.airSpeed = airSpeed
         self.ail  = ail_pos
         self.elev = elev_pos
+        self.alt = pose.position.z
 
         # command = [
         #   rudd_pos  

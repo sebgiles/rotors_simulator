@@ -162,14 +162,14 @@ private:
                     // V3D wind_local = V3D(0, -0.1875*(p_cp.Z()-10.0),0);
                     // return wind_local;
 
-            double z = p_cp.Z() - 2;
+            double z = p_cp.Z() - 10;
             double wind = 0.0;
-            if (z > 0.0 && z < 15.0)
-                wind = -1.0*z;
-            else if (z > 15.0)
-                wind = -15.0;
-            
-            V3D wind_local = V3D(0, wind,0);
+            double shear_top = 15.0;
+            double wind_grad = -1.0;
+
+            wind = wind_grad * std::max(std::min(z, shear_top), 0.0);
+
+            V3D wind_local = V3D(0, wind, 0);
             return wind_local;
         }
     };
