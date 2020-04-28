@@ -55,9 +55,9 @@ class AlbatrossEnv(gym.Env):
         self.state = None
 
         # gym.Env overrides:
-        #   observation space: (z, v, roll, yaw, pitch)
-        obs_low  = [    0.0,    0.0, -np.pi, -np.pi, -np.pi/2]
-        obs_high = [ np.Inf, np.Inf, +np.pi, +np.pi, +np.pi/2]
+        #   observation space: (z, v, yaw)
+        obs_low  = [    0.0,    0.0, -np.pi]
+        obs_high = [ np.Inf, np.Inf, +np.pi]
         self.observation_space = spaces.Box(low  =np.array(obs_low), 
                                             high =np.array(obs_high))
 
@@ -177,7 +177,7 @@ class AlbatrossEnv(gym.Env):
         twist   = self.state.twist
 
         x = pose.position.x + 400
-        y = pose.position.y
+        #y = pose.position.y
         z = pose.position.z - self.wind_floor_z
 
         vx = twist.linear.x
@@ -196,10 +196,10 @@ class AlbatrossEnv(gym.Env):
 
         euler = Rotation.from_quat(quat).as_euler('zyx')
         yaw   = euler[0]
-        pitch = euler[1]
-        roll  = euler[2]
+        #pitch = euler[1]
+        #roll  = euler[2]
 
-        observation = np.array([z, v, roll, yaw, pitch])
+        observation = np.array([z, v, yaw])
 
         if observation_only:
             return observation
@@ -219,8 +219,6 @@ class AlbatrossEnv(gym.Env):
         #reward = 1 
         reward = delta_x
 
-        done = False
-
         if z < -8:
             done = True
             #reward = -100
@@ -238,7 +236,8 @@ class AlbatrossEnv(gym.Env):
 
         # elif x > 800:
         #     done = True
-
+        else:
+            done = False
 
         if done and self.episode_start_time is not None: 
             # update these members so the StableBaselines callback can get
