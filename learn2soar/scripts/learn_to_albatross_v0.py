@@ -42,30 +42,38 @@ class TensorboardCallback(BaseCallback):
 
 
 
-model_filename = l2s_path + "trained_models/albatross_v0.2"
+model_filename = l2s_path + "trained_models/albatross_v0.3"
 tensorboard_filename = l2s_path + "tb_logs/albatross_v0/"
 
 # Custom MLP policy of three layers of size 128 each
 class CustomPolicy(FeedForwardPolicy):
     def __init__(self, *args, **kwargs):
         super(CustomPolicy, self).__init__(*args, **kwargs,
-                                           net_arch=[32, dict(pi=[16],
-                                                          vf=[32])],                                                        
+                                           net_arch=[8, dict(pi=[8],
+                                                          vf=[8])],                                                        
                                            feature_extraction="mlp")
 
+class CustomLSTMPolicy(LstmPolicy):
+    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=16, reuse=False, **_kwargs):
+        super().__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm, reuse,
+                         net_arch=['lstm', dict(vf=[8], pi=[8])],
+                         layer_norm=True, feature_extraction="mlp", **_kwargs)
+
 # Use #1 to create a new model, #2 to reload the model from the file
-model = A2C(CustomPolicy,           # 1 
-#model = A2C.load(model_filename,   # 2
+#model = A2C(CustomPolicy,           # 1 
+#model = A2C(CustomLSTMPolicy,           # 1 
+model = A2C.load(model_filename,   # 2
             env, 
             tensorboard_log=tensorboard_filename,
             verbose = 1,
-            learning_rate=10e-4,
+            learning_rate=3e-4,
             gamma=0.995, 
-            n_steps=3, 
+            n_steps=5, 
             lr_schedule='linear'
         )
+
 try:
-    model.learn(total_timesteps=2000000, callback=TensorboardCallback())
+    model.learn(total_timesteps=100000, callback=TensorboardCallback())
 except (ROSInterruptException, ServiceException):
     print("Interrupted, saving model")
     model.save(model_filename)

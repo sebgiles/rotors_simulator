@@ -97,17 +97,17 @@ class AlbatrossEnv(gym.Env):
 
         randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
 
-        z = 20 + 2 * randn
+        z = 0 #+ 2 * randn
         v = np.sqrt(2 * (E - 9.81 * z))
 
-        yaw = -0.2 + 0.3 * randn
-        heading = yaw - np.pi*1/6
+        yaw = -1.4 + 0.1 * randn
+        heading = yaw # - np.pi*1/6
 
-        pitch = 0 + 0.05 * randn
+        pitch = 0.3 # + 0.05 * randn
 
-        roll = 0 + 0.1 * randn
+        roll = 0.0 # + 0.1 * randn
 
-        quat_orient = Rotation.from_euler('zyx', [yaw,pitch,roll])
+        quat_orient = Rotation.from_euler('ZYX', [yaw,pitch,roll])
 
         self.pitch_cmd = pitch
         self.roll_cmd  = roll 
@@ -194,7 +194,7 @@ class AlbatrossEnv(gym.Env):
                 pose.orientation.z,
                 pose.orientation.w)
 
-        euler = Rotation.from_quat(quat).as_euler('zyx')
+        euler = Rotation.from_quat(quat).as_euler('ZYX')
         yaw   = euler[0]
         #pitch = euler[1]
         #roll  = euler[2]
