@@ -23,11 +23,11 @@
   <xacro:include filename="$(find rotors_description)/urdf/glider.xacro" />
 
   <!-- ??? - Removing the following breaks aerodynamics -->
-  <xacro:default_camera
+  <!-- <xacro:default_camera
     namespace="${namespace}"
     parent_link="${namespace}/base_link"
     camera_suffix="cam_front">
     <origin xyz="0.465 0 0.05" rpy="0 0.2 0" />
-  </xacro:default_camera>
+  </xacro:default_camera> -->
 
 </robot>

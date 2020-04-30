@@ -105,7 +105,7 @@ if (NOT NO_ROS)
     rosbag
     roscpp
     rotors_comm
-    rotors_control
+    #rotors_control
     std_srvs
     tf
   )
@@ -221,7 +221,7 @@ if (NOT NO_ROS)
     catkin_package(
       INCLUDE_DIRS include ${Eigen_INCLUDE_DIRS}
       LIBRARIES rotors_gazebo_motor_model rotors_gazebo_controller_interface
-      CATKIN_DEPENDS cv_bridge geometry_msgs mav_msgs octomap_msgs octomap_ros rosbag roscpp gazebo_plugins rotors_comm rotors_control std_srvs tf
+      CATKIN_DEPENDS cv_bridge geometry_msgs mav_msgs octomap_msgs octomap_ros rosbag roscpp gazebo_plugins rotors_comm std_srvs tf #rotors_control
       DEPENDS Eigen octomap OpenCV
       #CFG_EXTRAS rotors_gazebo_plugins.cmake
     )
@@ -230,7 +230,7 @@ if (NOT NO_ROS)
     catkin_package(
       INCLUDE_DIRS include ${Eigen_INCLUDE_DIRS}
       LIBRARIES rotors_gazebo_motor_model rotors_gazebo_controller_interface
-      CATKIN_DEPENDS cv_bridge geometry_msgs mav_msgs octomap_msgs octomap_ros rosbag roscpp gazebo_plugins rotors_comm rotors_control std_srvs tf
+      CATKIN_DEPENDS cv_bridge geometry_msgs mav_msgs octomap_msgs octomap_ros rosbag roscpp gazebo_plugins rotors_comm std_srvs tf #rotors_control
       DEPENDS Eigen octomap OpenCV
       #CFG_EXTRAS rotors_gazebo_plugins.cmake
     )
@@ -253,7 +253,7 @@ include_directories(${Eigen_INCLUDE_DIRS})
 
 #==================================== AERODYNAMICS PLUGIN ========================================//
 add_library(rotors_gazebo_aerodynamics_plugin SHARED src/gazebo_aerodynamics_plugin.cpp)
-target_link_libraries(rotors_gazebo_aerodynamics_plugin ${target_linking_LIBRARIES} )
+target_link_libraries(rotors_gazebo_aerodynamics_plugin ${target_linking_LIBRARIES} ${YamlCpp_LIBRARIES})
 if (NOT NO_ROS)
   add_dependencies(rotors_gazebo_aerodynamics_plugin ${catkin_EXPORTED_TARGETS})
 endif()
@@ -529,7 +529,7 @@ list(APPEND targets_to_install rotors_gazebo_pressure_plugin)
 
 #==================================== PROPULSION PLUGIN ========================================//
 add_library(rotors_gazebo_propulsion_plugin SHARED src/gazebo_propulsion_plugin.cpp)
-target_link_libraries(rotors_gazebo_propulsion_plugin ${target_linking_LIBRARIES} )
+target_link_libraries(rotors_gazebo_propulsion_plugin ${target_linking_LIBRARIES} ${YamlCpp_LIBRARIES})
 if (NOT NO_ROS)
   add_dependencies(rotors_gazebo_propulsion_plugin ${catkin_EXPORTED_TARGETS})
 endif()
