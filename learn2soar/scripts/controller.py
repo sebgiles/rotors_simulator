@@ -7,6 +7,15 @@ import tf
 def saturate(val, limit):
     return min(max(val, -limit), limit) # Saturate in [-1, 1]
 
+floor_offset = 10.0
+
+def get_wind(pos):
+    z = pos.z - floor_offset
+    wind = np.array([0,0,0, 0], dtype=float)
+    shear_top = 15.0
+    wind_grad = -1.0
+    wind[1] = wind_grad * max(min(z, shear_top), 0.0)
+    return wind
 
 class Controller:
 
@@ -172,24 +181,17 @@ class Controller:
 
         I_v = np.array([twist.linear.x, twist.linear.y, twist.linear.z, 1])
 
-        z = pose.position.z - 10
-        wind = np.array([0,0,0, 0], dtype=float)
-        shear_top = 15.0
-        wind_grad = -1.0
-
-        wind[1] = wind_grad * max(min(z, shear_top), 0.0)
-
+        wind = get_wind(self.pose.position)
 
         airSpeed = np.dot(R, I_v - wind)[0] 
 
         if airSpeed < 0.1: 
             airSpeed = 0.1
 
-            
         ## Roll controller
 
         K_p_r = 400.
-        K_d_r = 50.
+        K_d_r = 100.
         ail_lim = 0.5*np.pi/2
 
         phi_ref = self.phi_ref

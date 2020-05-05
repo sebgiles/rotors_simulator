@@ -90,22 +90,32 @@ class AlbatrossEnv(gym.Env):
         print('==== Environment is ready ====')
 
 
+    def get_wind(self, z):
+        wind = np.array([0,0,0, 0], dtype=float)
+        shear_top = 15.0
+        wind_grad = -1.0
+        wind[1] = wind_grad * max(min(z, shear_top), 0.0)
+        return wind
+
+
     # Resets the state of the environment and returns initial observation
     def reset(self):
         # theoretically limits altitude to 40 m if it doesn't gain energy
-        E = 50*9.81 
+        E = 40*9.81 
 
         randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
 
-        z = 0 #+ 2 * randn
+        z = 10 + 12 * randn
         v = np.sqrt(2 * (E - 9.81 * z))
 
-        yaw = -1.4 + 0.1 * randn
-        heading = yaw # - np.pi*1/6
+        randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
+        yaw = -0.0 + np.pi/2 * randn
 
-        pitch = 0.3 # + 0.05 * randn
+        randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
+        pitch = 0.2 * randn
 
-        roll = 0.0 # + 0.1 * randn
+        randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
+        roll =  0.5 * randn
 
         quat_orient = Rotation.from_euler('ZYX', [yaw,pitch,roll])
 
@@ -120,8 +130,8 @@ class AlbatrossEnv(gym.Env):
         self.init_state.pose.orientation.z = quat_orient.as_quat()[2]
         self.init_state.pose.orientation.w = quat_orient.as_quat()[3]
 
-        self.init_state.twist.linear.x  = v * np.cos(heading)
-        self.init_state.twist.linear.y  = v * np.sin(heading) 
+        self.init_state.twist.linear.x  = v * np.cos(yaw)
+        self.init_state.twist.linear.y  = v * np.sin(yaw) + self.get_wind(z)[1]
         self.init_state.twist.linear.z  = 0
         self.init_state.twist.angular.x = 0
         self.init_state.twist.angular.y = 0
@@ -184,7 +194,7 @@ class AlbatrossEnv(gym.Env):
         vy = twist.linear.y
         vz = twist.linear.z  
 
-        vy_wind = -1 * z 
+        vy_wind = self.get_wind(z)[1]
 
         v = np.linalg.norm([vx,vy,vz])
         airspeed = np.linalg.norm([vx, vy-vy_wind, vz])
