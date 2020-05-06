@@ -49,31 +49,42 @@ def main():
     observations = []
     rewards = []
     episode_returns = []
-    episode_starts = []
 
-    ep_ret = None
+    ep_ret = 0.0
     obs    = None
     done   = True  # To force reset on first step
 
     while True:  
-        if done: # or agent.paused: 
-            if ep_ret is not None:
-                print(ep_ret)
-                episode_returns.append(ep_ret)
+        if done: 
+            if ep_ret >= 500.0:
+                print("%.1f"%ep_ret)
+                episode_returns += [ep_ret]
+                episode_starts  += _episode_starts
+                actions         += _actions
+                observations    += _observations
+                rewards         += _rewards
+            else:
+                print("You didn't reach 500m. Discarding episode")
+            _episode_starts = []
+            _actions = []
+            _observations = []
+            _rewards = []
             ep_ret = 0.0
+            while not agent.paused():
+                time.sleep(0.1)
             obs = env.reset()
         try:
             act = agent.get_action()
         except KeyboardInterrupt:
             break
 
-        episode_starts.append(done)
-        observations.append(obs)
-        actions.append(act)
+        _episode_starts.append(done)
+        _observations.append(obs)
+        _actions.append(act)
 
         obs, rew, done, _ = env.step(act)
 
-        rewards.append(rew)
+        _rewards.append(rew)
 
         ep_ret += rew
 

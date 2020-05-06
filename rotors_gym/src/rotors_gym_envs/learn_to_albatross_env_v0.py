@@ -143,11 +143,12 @@ class AlbatrossEnv(gym.Env):
         self.last_x = 0.0
         self.extracted_energy = 0.0
         self.episode_start_time = rospy.Time.now()
-
+        self._unpause()
+        self.state_pub.publish(self.init_state)
         self.roll_pub.publish(Float32(self.pitch_cmd))
         self.pitch_pub.publish(Float32(self.roll_cmd))
+        rospy.sleep(0.01)
         self._pause()
-        self.state_pub.publish(self.init_state)
 
         self.latest_state_msg = None
         observation = self._observe(observation_only=True)
@@ -228,12 +229,13 @@ class AlbatrossEnv(gym.Env):
 
         #reward = 1 
         reward = delta_x
-
+        done = False
         if z < -8:
             done = True
             #reward = -100
             #reward += -E  # punish for crash landing by speed
-
+        if x > 500: 
+            done = True
         # elif pitch < - 0.5 and airspeed < 8:
         #     done = True
             #reward = -100
@@ -246,8 +248,8 @@ class AlbatrossEnv(gym.Env):
 
         # elif x > 800:
         #     done = True
-        else:
-            done = False
+
+            
 
         if done and self.episode_start_time is not None: 
             # update these members so the StableBaselines callback can get
