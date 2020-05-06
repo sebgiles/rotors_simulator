@@ -8,9 +8,8 @@ import time, sys
 
 cs_topics = [   "/uav_1/elev_pos",      
                 "/uav_1/ail_l_pos",     
-                "/uav_1/ail_r_pos",
-                "/uav_1/rudd_pos",      
-                "/uav_1/prop_ref_0"
+                "/uav_1/ail_r_pos",      
+                #"/uav_1/prop_ref_0"
               ]
 
 class Learn2SoarROSInterface:
@@ -25,8 +24,7 @@ class Learn2SoarROSInterface:
         rospy.Subscriber("/gazebo/model_states", ModelStates, self.new_sensor_data_callback, queue_size=1)
         rospy.Subscriber("/l2s/attitude_cmd/roll", Float32, self.new_cmd_roll, queue_size=1)
         rospy.Subscriber("/l2s/attitude_cmd/pitch", Float32, self.new_cmd_pitch, queue_size=1)
-        rospy.Subscriber("/l2s/attitude_cmd/yaw", Float32, self.new_cmd_yaw, queue_size=1)
-        rospy.Subscriber("/l2s/motor_cmd", Float32, self.new_cmd_motor, queue_size=1)
+        #rospy.Subscriber("/l2s/motor_cmd", Float32, self.new_cmd_motor, queue_size=1)
         
         for topic in cs_topics:
             self.cs_pubs.append(rospy.Publisher(topic, Float32, queue_size=1))
@@ -66,7 +64,7 @@ class Learn2SoarROSInterface:
         if self.logic.do_low_level_control(rosnow - event.last_real):
             self.freq_count += 1
             command = self.logic.command
-            for i in range(len(command)):
+            for i in range(len(self.cs_pubs)):
                 self.cs_pubs[i].publish(Float32(command[i]))
 
         wallnow = time.time()
