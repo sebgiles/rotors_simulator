@@ -43,13 +43,13 @@ class Controller:
         self.last_curv = 0
 
         self.prop = 0
-        self.elev = None
-        self.ail = None
-        self.rudd = None
+        self.elev = 0
+        self.ail = 0
+        self.rudd = 0
 
-        self.theta = None
-        self.phi = None
-        self.psi = None
+        self.theta = 0
+        self.phi = 0
+        self.psi = 0
 
         self.airSpeed = 0.01
 
@@ -237,14 +237,17 @@ class Controller:
         K_d_y = 1.
         rudd_lim = 0.5*np.pi/2
 
-        psi_ref = self.psi_ref 
-        psi     = euler[2]
-        psi_err = psi_ref - psi
+        if self.psi_ref is not None:
+            psi_ref = self.psi_ref 
+            psi     = euler[2]
+            psi_err = psi_ref - psi
 
-        d_psi_err = (psi_err - self.last_psi_err ) / dt
-        self.last_psi_err = psi_err
-        rudd_pos = 1 / airSpeed**2 * (K_p_y * psi_err + K_d_y * d_psi_err)
-        rudd_pos = saturate(rudd_pos, rudd_lim)
+            d_psi_err = (psi_err - self.last_psi_err ) / dt
+            self.last_psi_err = psi_err
+            rudd_pos = 1 / airSpeed**2 * (K_p_y * psi_err + K_d_y * d_psi_err)
+            rudd_pos = saturate(rudd_pos, rudd_lim)
+            
+        else: rudd_pos = 0
 
         ## Speed controller, very rough, upsgrade to PI if you care
         # k_p_v = 5000
