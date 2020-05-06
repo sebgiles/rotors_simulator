@@ -15,6 +15,7 @@ class Controller:
         self.low_level_control_period = 0.05
         self.high_level_control_period = 0.1
         
+        self.last_psi_err = 0
         self.last_phi_err = 0
         self.last_theta_err = 0
         self.alt = None
@@ -28,14 +29,18 @@ class Controller:
         self.last_psi = 0
         self.phi_ref = 0
 
+        self.psi_ref = None
+
         self.last_curv = 0
 
         self.prop = 0
         self.elev = None
         self.ail = None
+        self.rudd = None
 
         self.theta = None
         self.phi = None
+        self.psi = None
 
         self.airSpeed = 0.01
 
@@ -204,8 +209,8 @@ class Controller:
 
         ## Pitch controller 
 
-        K_p_p = 250.
-        K_d_p = 0.
+        K_p_p = 100.
+        K_d_p = 1.0
         elev_trim = -0.05
         elev_lim = 0.3*np.pi/2
 
@@ -224,7 +229,20 @@ class Controller:
 
         elev_pos = saturate(elev_pos, elev_lim)
 
-        rudd_pos = 0.
+        ## Yaw controller
+
+        K_p_y = 50.
+        K_d_y = 1.
+        rudd_lim = 0.5*np.pi/2
+
+        psi_ref = self.psi_ref 
+        psi     = euler[2]
+        psi_err = psi_ref - psi
+
+        d_psi_err = (psi_err - self.last_psi_err ) / dt
+        self.last_psi_err = psi_err
+        rudd_pos = 1 / airSpeed**2 * (K_p_y * psi_err + K_d_y * d_psi_err)
+        rudd_pos = saturate(rudd_pos, rudd_lim)
 
         ## Speed controller, very rough, upsgrade to PI if you care
         # k_p_v = 5000
@@ -236,9 +254,11 @@ class Controller:
         ## Useful values to access throughout in the class 
         self.theta = theta
         self.phi = phi
+        self.psi = psi
         self.airSpeed = airSpeed
         self.ail  = ail_pos
         self.elev = elev_pos
+        self.rudd = rudd_pos
         self.alt = pose.position.z
 
         # command = [
@@ -253,6 +273,6 @@ class Controller:
         #   prop_ref_0
         # ]
         self.action = [ail_pos, elev_pos, rudd_pos, self.prop]
-        self.command = [elev_pos, ail_pos, -ail_pos, self.prop]
+        self.command = [elev_pos, ail_pos, -ail_pos, rudd_pos, self.prop]
 
         return True

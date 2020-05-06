@@ -8,7 +8,8 @@ import time, sys
 
 cs_topics = [   "/uav_1/elev_pos",      
                 "/uav_1/ail_l_pos",     
-                "/uav_1/ail_r_pos",      
+                "/uav_1/ail_r_pos",
+                "/uav_1/rudd_pos",      
                 "/uav_1/prop_ref_0"
               ]
 
@@ -24,6 +25,7 @@ class Learn2SoarROSInterface:
         rospy.Subscriber("/gazebo/model_states", ModelStates, self.new_sensor_data_callback, queue_size=1)
         rospy.Subscriber("/l2s/attitude_cmd/roll", Float32, self.new_cmd_roll, queue_size=1)
         rospy.Subscriber("/l2s/attitude_cmd/pitch", Float32, self.new_cmd_pitch, queue_size=1)
+        rospy.Subscriber("/l2s/attitude_cmd/yaw", Float32, self.new_cmd_yaw, queue_size=1)
         rospy.Subscriber("/l2s/motor_cmd", Float32, self.new_cmd_motor, queue_size=1)
         
         for topic in cs_topics:
@@ -41,7 +43,10 @@ class Learn2SoarROSInterface:
         self.logic.phi_ref = msg.data
 
     def new_cmd_pitch(self, msg):
-        self.logic.theta_ref = msg.data  
+        self.logic.theta_ref = msg.data
+
+    def new_cmd_yaw(self, msg):
+        self.logic.psi_ref = msg.data      
 
     def new_cmd_motor(self, msg):
         self.logic.prop = msg.data  
