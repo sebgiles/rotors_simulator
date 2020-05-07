@@ -25,7 +25,7 @@ class Learn2SoarROSInterface:
         rospy.Subscriber("/gazebo/model_states", ModelStates, self.new_sensor_data_callback, queue_size=1)
         rospy.Subscriber("/l2s/attitude_cmd/roll", Float32, self.new_cmd_roll, queue_size=1)
         rospy.Subscriber("/l2s/attitude_cmd/pitch", Float32, self.new_cmd_pitch, queue_size=1)
-        rospy.Subscriber("/l2s/attitude_cmd/yaw", Float32, self.new_cmd_pitch, queue_size=1)
+        rospy.Subscriber("/l2s/attitude_cmd/yaw", Float32, self.new_cmd_yaw, queue_size=1)
         #rospy.Subscriber("/l2s/motor_cmd", Float32, self.new_cmd_motor, queue_size=1)
         
         for topic in cs_topics:
