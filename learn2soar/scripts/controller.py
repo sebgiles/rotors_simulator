@@ -236,10 +236,10 @@ class Controller:
         K_p_y = 50.
         K_d_y = 1.
         rudd_lim = 0.5*np.pi/2
+        psi     = euler[2]
 
         if self.psi_ref is not None:
             psi_ref = self.psi_ref 
-            psi     = euler[2]
             psi_err = psi_ref - psi
 
             d_psi_err = (psi_err - self.last_psi_err ) / dt
