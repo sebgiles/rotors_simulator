@@ -145,8 +145,8 @@ class AlbatrossEnv(gym.Env):
         self.episode_start_time = rospy.Time.now()
         self._unpause()
         self.state_pub.publish(self.init_state)
-        self.roll_pub.publish(Float32(self.pitch_cmd))
-        self.pitch_pub.publish(Float32(self.roll_cmd))
+        self.roll_pub.publish(Float32(self.roll_cmd))
+        self.pitch_pub.publish(Float32(self.pitch_cmd))
         rospy.sleep(0.01)
         self._pause()
 
