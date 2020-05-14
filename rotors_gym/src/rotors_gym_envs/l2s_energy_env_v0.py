@@ -273,7 +273,7 @@ class AlbatrossEnv(gym.Env):
             self.positive_power = self.extracted_energy/self.duration 
 
         info = {
-            'total_rotation':   self.total_rotation,
+            'total_rotation':  self.total_rotation,
             'max_energy':      self.max_energy,
             'min_airspeed':    self.min_airspeed,
             'mean_energy':     self.mean_energy,
