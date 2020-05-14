@@ -1,3 +1,3 @@
 #!/bin/sh
 
-tensorboard --logdir tb_logs/tb_albatross_rnn_0/ --port 8888
+tensorboard --logdir tb_logs/energy_v1/ --port 8888
