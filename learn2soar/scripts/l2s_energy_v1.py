@@ -66,7 +66,7 @@ param_noise = AdaptiveParamNoiseSpec(initial_stddev=0.1, desired_action_stddev=0
 action_noise = None
 #action_noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(n_actions), sigma=float(0.1) * np.ones(n_actions))
 
-model = DDPG.load(model_filename+'_pre',   
+model = DDPG.load(model_filename,   
 #model = DDPG(   CustomDDPGPolicy, 
                 env, 
                 param_noise=param_noise, 
