@@ -20,7 +20,7 @@ from gym.envs.registration import register
 class AlbatrossEnv(gym.Env):
 
     def __init__(self):
-        rospy.init_node('gym_albatross', anonymous=True)
+        rospy.init_node('gym', anonymous=True)
 
         self.time_step = 0.3
         self.roll_cmd_limit = 1.0
@@ -72,8 +72,13 @@ class AlbatrossEnv(gym.Env):
 
         # Variables used to calculate rewards and metrics
         self.extracted_energy   = None
+        self.extracted_energy   = None
+        self.mean_energy        = None
+        self.max_energy         = None
+        self.min_airspeed       = None
         self.last_energy        = None
         self.last_x             = None
+        self.last_yaw           = None
         self.final_airspeed     = None
         self.final_altitude     = None
         self.terminal_energy    = None
@@ -105,17 +110,17 @@ class AlbatrossEnv(gym.Env):
 
         randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
 
-        z = 10 + 12 * randn
+        z = 7.5 + 10 * randn
         v = np.sqrt(2 * (E - 9.81 * z))
 
         randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
         yaw = -0.0 + np.pi/2 * randn
 
         randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
-        pitch = 0.2 * randn
+        pitch = 0.5 * randn
 
         randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
-        roll =  0.5 * randn
+        roll =  0.75 * randn
 
         quat_orient = Rotation.from_euler('ZYX', [yaw,pitch,roll])
 
@@ -141,7 +146,12 @@ class AlbatrossEnv(gym.Env):
 
         self.last_energy = E
         self.last_x = 0.0
+        self.last_yaw = yaw
+        self.total_rotation = 0.0
         self.extracted_energy = 0.0
+        self.mean_energy      = 0.0
+        self.max_energy         = E
+        self.min_airspeed       = 999.0
         self.episode_start_time = rospy.Time.now()
         self._unpause()
         self.state_pub.publish(self.init_state)
@@ -161,8 +171,7 @@ class AlbatrossEnv(gym.Env):
         # wait as the simulation runs
         rospy.sleep(self.time_step)
         self._freeze()
-        observation, reward, done = self._observe()
-        info = {}
+        observation, reward, done, info = self._observe()
         return observation, reward, done, info
 
 
@@ -222,35 +231,32 @@ class AlbatrossEnv(gym.Env):
         deltaE = E - self.last_energy
         delta_x = x - self.last_x
 
+        delta_yaw = yaw - self.last_yaw
+        if abs(delta_yaw) > np.pi:
+            delta_yaw = -np.sign(delta_yaw)*(np.abs(delta_yaw) - 2*np.pi)
+
+        self.total_rotation += delta_yaw
         self.last_energy = E
         self.last_x = x
+        self.last_yaw = yaw
         
         self.extracted_energy += max([0, deltaE])
+        self.max_energy        = max([self.max_energy, E])
+        self.min_airspeed      = min([self.min_airspeed, airspeed])
+        self.mean_energy      += E*self.time_step
 
-        #reward = 1 
-        reward = delta_x
+        #reward = 1
+        #reward = delta_x
+        reward = max([0, deltaE])
+
         done = False
         if z < -8:
-            done = True
-            #reward = -100
-            #reward += -E  # punish for crash landing by speed
-        if x > 500: 
-            done = True
-        # elif pitch < - 0.5 and airspeed < 8:
-        #     done = True
-            #reward = -100
-            #reward += -E  # punish for stalling by altitude 
-        
-        # elif np.abs(yaw) > 0.55 * np.pi:
-        #     done = True
-        #     #reward = -100
-        #     #reward = -E
+            done = True   
 
-        # elif x > 800:
-        #     done = True
+        if done:
+            reward = 0
 
-            
-
+        # "TELEMETRY"
         if done and self.episode_start_time is not None: 
             # update these members so the StableBaselines callback can get
             # them and add them to the tensorboard log
@@ -259,10 +265,21 @@ class AlbatrossEnv(gym.Env):
             self.final_airspeed = airspeed
             self.final_altitude = z
             self.terminal_energy = E
-           #self.extracted_energy = self.extracted_energy
+            #self.extracted_energy = self.extracted_energy
+            #self.max_energy         = None
+            #self.min_airspeed       = None
+            #self.total_rotation = self.total_rotation
+            self.mean_energy /= self.duration
             self.positive_power = self.extracted_energy/self.duration 
 
-        return observation, reward, done
+        info = {
+            'total_rotation':   self.total_rotation,
+            'max_energy':      self.max_energy,
+            'min_airspeed':    self.min_airspeed,
+            'mean_energy':     self.mean_energy,
+        }
+
+        return observation, reward, done, info
 
 
     # Send updated roll and pitch setpoints to the low-level controller 
@@ -274,8 +291,8 @@ class AlbatrossEnv(gym.Env):
         self.pitch_cmd = action[0] * self.pitch_cmd_limit
         self.roll_cmd  = action[1] * self.roll_cmd_limit
                
-        self.roll_pub.publish(Float32(self.roll_cmd))
         self.pitch_pub.publish(Float32(self.pitch_cmd))
+        self.roll_pub.publish(Float32(self.roll_cmd))
 
 
     def render(self, mode='human'):
@@ -288,6 +305,6 @@ class AlbatrossEnv(gym.Env):
 
 
 register(
-    id='Albatross-v0',
+    id='l2s-energy-v0',
     entry_point=AlbatrossEnv
 )
