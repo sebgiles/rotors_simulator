@@ -8,14 +8,14 @@ from std_msgs.msg import Float32, Bool
 
 import gym
 from gym import spaces
-import rotors_gym_envs.learn_to_albatross_env_v0
+import rotors_gym_envs.l2s_energy_env_v1
 import time
         
 
 class HumanInTheLoop():
     
     def __init__(self):
-        self.action = [0.0, 0.0]
+        self.mouse_cmd = TwoTuple()
         self.paused = True
         rospy.Subscriber("/teleop_mouse_cmd", TwoTuple,
                          self._mouse_cb, queue_size=1)
@@ -23,25 +23,31 @@ class HumanInTheLoop():
                          self._click_cb, queue_size=1)
     
 
-    def get_action(self):
+    def get_action(self, obs):
         while self.paused:
             if rospy.is_shutdown(): 
                 raise KeyboardInterrupt
             time.sleep(0.1)
-        return self.action
-            
+        airspeed_factor = 1 / (max(5,obs[1])/15.0)**2
+        airspeed_factor = min(max(airspeed_factor,-1),1)
+        act = np.array([self.mouse_cmd.v, -self.mouse_cmd.h]) * airspeed_factor
+        return act
+
+    def __call__(self, obs): 
+        return self.get_action(obs)
+
 
     def _click_cb(self, msg):
         self.paused = not msg.data
 
 
     def _mouse_cb(self, msg):
-        self.action = [msg.v, -msg.h]
+        self.mouse_cmd = msg
 
 demo_name = 'seb'
 
 def main():
-    env = gym.make('Albatross-v0')
+    env = gym.make('l2s-energy-v1')
     agent = HumanInTheLoop()
 
     episode_starts = []
@@ -50,31 +56,28 @@ def main():
     rewards = []
     episode_returns = []
 
-    ep_ret = 0.0
+    ep_ret = None
     obs    = None
+    info   = None
     done   = True  # To force reset on first step
 
-    while True:  
+
+    while True: 
         if done: 
-            if ep_ret >= 500.0:
-                print("%.1f"%ep_ret)
-                episode_returns += [ep_ret]
-                episode_starts  += _episode_starts
-                actions         += _actions
-                observations    += _observations
-                rewards         += _rewards
-            else:
-                print("You didn't reach 500m. Discarding episode")
+
             _episode_starts = []
             _actions = []
             _observations = []
             _rewards = []
             ep_ret = 0.0
-            while not agent.paused():
-                time.sleep(0.1)
             obs = env.reset()
+            ep_steps = 0
+
+            while not agent.paused:
+                time.sleep(0.1)   
+
         try:
-            act = agent.get_action()
+            act = agent(obs)
         except KeyboardInterrupt:
             break
 
@@ -82,11 +85,37 @@ def main():
         _observations.append(obs)
         _actions.append(act)
 
-        obs, rew, done, _ = env.step(act)
+        obs, rew, done, info = env.step(act)
+        ep_steps += 1 
+        
+        # if ep_steps >= 60: 
+        #     done = True
+        if agent.paused: 
+            done = True
+
 
         _rewards.append(rew)
-
         ep_ret += rew
+
+        if done or ep_steps%6 == 0:
+            print("\r", end='')
+            print("Reward: %04.0f\t"%ep_ret, end='')
+            print("min_airspeed: %04.1f\t"%info['min_airspeed'], end='')
+
+        if done: 
+            if agent.paused: 
+                print(' - quit', end='')
+            if ep_ret >= 0.0 :
+                episode_returns += [ep_ret]
+                episode_starts  += _episode_starts
+                actions         += _actions
+                observations    += _observations
+                rewards         += _rewards
+                print(" - KEEP", end='')
+            print()
+
+
+    if len(episode_returns) < 1: return
 
     print("Demonstrations concluded.")
     print("Insert comment or just press enter. ['xxx' to discard the run]")
