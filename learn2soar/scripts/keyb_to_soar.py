@@ -5,7 +5,8 @@ from getkey import getkey
 from itertools import product
 
 keys = list("zxcasdqwe")
-values = list(product([-1,0,+1],[-1,0,+1]))
+#values = list(product([-1,0,+1],[-1,0,+1]))
+values = list(product([0,1,2],[0,1,2]))
 keymap = dict(zip(keys, values))
 
 env = gym.make('Albatross-v1')
