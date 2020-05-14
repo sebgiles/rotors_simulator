@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import numpy as np
 from scipy.spatial.transform import Rotation
 
@@ -20,18 +19,14 @@ from gym.envs.registration import register
 
 class AlbatrossEnv(gym.Env):
 
-    env_id = 'Albatross-v1'
-
     def __init__(self):
-        rospy.init_node('gym_albatross', anonymous=True)
+        rospy.init_node('gym_time_v0', anonymous=True)
 
-        self.time_step = 0.2
+        self.time_step = 0.3
+        self.roll_cmd_limit = 1.0
+        self.pitch_cmd_limit = 1.0
 
-        # Units will be warped by tangent(current_angle)
-        self.pitch_cmd_step = 0.15
-        self.roll_cmd_step = 0.25
-
-        self.wind_floor_z = 10.
+        self.wind_floor_z = 10
 
         # to step simulation
         rospy.wait_for_service('/gazebo/pause_physics')    
@@ -60,14 +55,17 @@ class AlbatrossEnv(gym.Env):
         self.state = None
 
         # gym.Env overrides:
-        #   observation space: (z, v, roll, yaw, pitch)
-        obs_low  = [    0.0,    0.0, -np.pi, -np.pi, -np.pi/2]
-        obs_high = [ np.Inf, np.Inf, +np.pi, +np.pi, +np.pi/2]
+        #   observation space: (z, v, yaw)
+        obs_low  = [    0.0,    0.0, -np.pi]
+        obs_high = [ np.Inf, np.Inf, +np.pi]
         self.observation_space = spaces.Box(low  =np.array(obs_low), 
                                             high =np.array(obs_high))
 
         #   action space: (pitch_increment, roll_increment)
-        self.action_space = spaces.MultiDiscrete([3,3])
+        self.action_space = spaces.Box(
+            low  = np.array([-1.0, -1.0]), 
+            high = np.array([+1.0, +1.0])
+            )
 
         #   reward range
         self.reward_range = (-np.inf, np.inf)
@@ -92,40 +90,52 @@ class AlbatrossEnv(gym.Env):
         print('==== Environment is ready ====')
 
 
+    def get_wind(self, z):
+        wind = np.array([0,0,0, 0], dtype=float)
+        shear_top = 15.0
+        wind_grad = -1.0
+        wind[1] = wind_grad * max(min(z, shear_top), 0.0)
+        return wind
+
+
     # Resets the state of the environment and returns initial observation
     def reset(self):
         # theoretically limits altitude to 40 m if it doesn't gain energy
-        E = 50.0 * 9.81 
+        E = 40*9.81 
 
-        randn = 2.0 * (self.np_random.rand() - 0.5) # number in [-1,1]
-        z = 20 + 1.0 * randn
-        v = np.sqrt(2.0 * (E - 9.81 * z))
-        pitch = 0.0
+        randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
 
-        randn = 2.0 * (self.np_random.rand() - 0.5) # number in [-1,1]
-        yaw = - 0.8 + 0.1 * randn 
-        heading = yaw - 0.3
-        roll = 0.0
+        z = 10 + 12 * randn
+        v = np.sqrt(2 * (E - 9.81 * z))
 
-        quat_orient = Rotation.from_euler('zyx', [yaw,pitch,roll])
+        randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
+        yaw = -0.0 + np.pi/2 * randn
+
+        randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
+        pitch = 0.2 * randn
+
+        randn = 2 * (self.np_random.rand() - 0.5) # number in [-1,1]
+        roll =  0.5 * randn
+
+        quat_orient = Rotation.from_euler('ZYX', [yaw,pitch,roll])
 
         self.pitch_cmd = pitch
         self.roll_cmd  = roll 
 
-        self.init_state.pose.position.x = 0.0 - 400.0
-        self.init_state.pose.position.y = 0.0 + 400.0
+        self.init_state.pose.position.x = 0 - 400
+        self.init_state.pose.position.y = 0 + 400
         self.init_state.pose.position.z = self.wind_floor_z + z
         self.init_state.pose.orientation.x = quat_orient.as_quat()[0]
         self.init_state.pose.orientation.y = quat_orient.as_quat()[1]
         self.init_state.pose.orientation.z = quat_orient.as_quat()[2]
         self.init_state.pose.orientation.w = quat_orient.as_quat()[3]
 
-        self.init_state.twist.linear.x  = v * np.cos(heading)
-        self.init_state.twist.linear.y  = v * np.sin(heading) 
-        self.init_state.twist.linear.z  = 0.0
-        self.init_state.twist.angular.x = 0.0
-        self.init_state.twist.angular.y = 0.0
-        self.init_state.twist.angular.z = 0.0
+        self.init_state.twist.linear.x  = v * np.cos(yaw)
+  <      self.init_state.twist.linear.y  = v * np.sin(yaw) + self.get_wind(z)[1]
+        self.init_state.twist.linear.z  = 0
+        self.init_state.twist.angular.x = 0
+        self.init_state.twist.angular.y = 0
+        self.init_state.twist.angular.z = 0
 
         self.state = copy.deepcopy(self.init_state)
 
@@ -133,11 +143,12 @@ class AlbatrossEnv(gym.Env):
         self.last_x = 0.0
         self.extracted_energy = 0.0
         self.episode_start_time = rospy.Time.now()
-
-        self.roll_pub.publish(Float32(self.pitch_cmd))
-        self.pitch_pub.publish(Float32(self.roll_cmd))
-        self._pause()
+        self._unpause()
         self.state_pub.publish(self.init_state)
+        self.roll_pub.publish(Float32(self.roll_cmd))
+        self.pitch_pub.publish(Float32(self.pitch_cmd))
+        rospy.sleep(0.01)
+        self._pause()
 
         self.latest_state_msg = None
         observation = self._observe(observation_only=True)
@@ -184,7 +195,7 @@ class AlbatrossEnv(gym.Env):
         vy = twist.linear.y
         vz = twist.linear.z  
 
-        vy_wind = -1 * z 
+        vy_wind = self.get_wind(z)[1]
 
         v = np.linalg.norm([vx,vy,vz])
         airspeed = np.linalg.norm([vx, vy-vy_wind, vz])
@@ -196,10 +207,10 @@ class AlbatrossEnv(gym.Env):
 
         euler = Rotation.from_quat(quat).as_euler('ZYX')
         yaw   = euler[0]
-        pitch = euler[1]
-        roll  = euler[2]
+        #pitch = euler[1]
+        #roll  = euler[2]
 
-        observation = np.array([z, v, yaw, pitch, roll])
+        observation = np.array([z, v, yaw])
 
         if observation_only:
             return observation
@@ -216,29 +227,16 @@ class AlbatrossEnv(gym.Env):
         
         self.extracted_energy += max([0, deltaE])
 
-        #reward = 1 
-        reward = delta_x
+        reward = 1
+        #reward = delta_x
+        done = False
+        if z < -8:
+            done = True   
 
-        if z < -5:
-            done = True
-            #reward = -100
-            #reward += -E  # punish for crash landing by speed
+        if done:
+            reward = 0
 
-        # elif pitch < - 0.5 and airspeed < 8:
-        #     done = True
-            #reward = -100
-            #reward += -E  # punish for stalling by altitude 
-        
-        # elif np.abs(yaw) > 0.55 * np.pi:
-        #     done = True
-        #     #reward = -100
-        #     #reward = -E
-
-        # elif x > 800:
-        #     done = True
-        else:
-            done = False
-
+        # "TELEMETRY"
         if done and self.episode_start_time is not None: 
             # update these members so the StableBaselines callback can get
             # them and add them to the tensorboard log
@@ -252,17 +250,18 @@ class AlbatrossEnv(gym.Env):
 
         return observation, reward, done
 
+
     # Send updated roll and pitch setpoints to the low-level controller 
     def _apply_action(self, action):
 
-        self.pitch_cmd += (action[0]-1) * self.pitch_cmd_step
-        self.roll_cmd  += (action[1]-1) * self.roll_cmd_step
+        # self.pitch_cmd = action[0]
+        # self.roll_cmd  = action[1]
 
-        # self.pitch_cmd = action[0] * self.pitch_cmd_limit
-        # self.roll_cmd  = action[1] * self.roll_cmd_limit
+        self.pitch_cmd = action[0] * self.pitch_cmd_limit
+        self.roll_cmd  = action[1] * self.roll_cmd_limit
                
-        self.pitch_pub.publish(Float32(np.arctan(self.pitch_cmd)))
-        self.roll_pub.publish(Float32(np.arctan(self.roll_cmd)))
+        self.roll_pub.publish(Float32(self.roll_cmd))
+        self.pitch_pub.publish(Float32(self.pitch_cmd))
 
 
     def render(self, mode='human'):
@@ -275,6 +274,6 @@ class AlbatrossEnv(gym.Env):
 
 
 register(
-    id=AlbatrossEnv.env_id,
+    id='l2s-time-v0',
     entry_point=AlbatrossEnv
 )
