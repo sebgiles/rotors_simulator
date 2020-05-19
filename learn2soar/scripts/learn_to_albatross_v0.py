@@ -41,16 +41,15 @@ class TensorboardCallback(BaseCallback):
         return True
 
 
-
-model_filename = l2s_path + "trained_models/albatross_v0.5"
+model_filename = l2s_path + "trained_models/pretr_albatross_v0.1"
+#model_filename = l2s_path + "trained_models/albatross_v0.5"
 tensorboard_filename = l2s_path + "tb_logs/albatross_v0/"
 
 # Custom MLP policy of three layers of size 128 each
 class CustomPolicy(FeedForwardPolicy):
     def __init__(self, *args, **kwargs):
         super(CustomPolicy, self).__init__(*args, **kwargs,
-                                           net_arch=[8, dict(pi=[8],
-                                                          vf=[8])],                                                        
+                                           net_arch=[ 32, dict(vf=[32,16], pi=[32,16]) ],                                                        
                                            feature_extraction="mlp")
 
 class CustomLSTMPolicy(LstmPolicy):
@@ -61,12 +60,12 @@ class CustomLSTMPolicy(LstmPolicy):
 
 # Use #1 to create a new model, #2 to reload the model from the file
 #model = A2C(CustomPolicy,           # 1 
-model = A2C(CustomLSTMPolicy,           # 1 
-#model = A2C.load(model_filename,   # 2
+#model = A2C(CustomLSTMPolicy,           # 1 
+model = A2C.load(model_filename,   # 2
             env, 
             tensorboard_log=tensorboard_filename,
             verbose = 1,
-            learning_rate=5e-4,
+            learning_rate=2e-4,
             gamma=0.995, 
             n_steps=5, 
             lr_schedule='linear'

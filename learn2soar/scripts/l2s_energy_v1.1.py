@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
+import numpy as np
 
-from stable_baselines import A2C
-from stable_baselines.common.policies import FeedForwardPolicy, MlpPolicy, LstmPolicy
-from stable_baselines.common import make_vec_env
-from stable_baselines.common.env_checker import check_env
+import gym
+
+from stable_baselines.common.policies import ActorCriticPolicy
+from stable_baselines import GAIL
+
 from stable_baselines.common.callbacks import BaseCallback
 import tensorflow as tf
 
@@ -11,9 +13,9 @@ from rospy.exceptions import ROSInterruptException
 from rospy.service    import ServiceException
 import rospkg 
 
-import rotors_gym_envs.l2s_energy_env_v0
+import rotors_gym_envs.l2s_energy_env_v1
 
-env = make_vec_env('l2s-energy-v0')
+env = gym.make('l2s-energy-v1')
 
 l2s_path = rospkg.RosPack().get_path('learn2soar') + "/"
 
@@ -26,7 +28,7 @@ class TensorboardCallback(BaseCallback):
         super(TensorboardCallback, self).__init__(verbose)
 
     def _on_rollout_end(self) -> bool:
-        myenv = env.envs[0]
+        myenv = env
         summary = tf.Summary(value=[])
         self.locals['writer'].add_summary(summary, self.num_timesteps)
         summary = tf.Summary(value=[
@@ -45,37 +47,33 @@ class TensorboardCallback(BaseCallback):
         return True
 
 
-#model_filename = l2s_path + "trained_models/pretr_albatross_v0.1"
-model_filename = l2s_path + "trained_models/energy_v0.2"
-tensorboard_filename = l2s_path + "tb_logs/energy_v0/"
+# Custom MLP policy of two layers of size 16 each
+class CustomPolicy(ActorCriticPolicy):
+    def __init__(self, *args, **kwargs):
+        super(CustomPolicy, self).__init__(*args, **kwargs,
+                                                net_arch=[32,{'pi':[16], 'vf':[8]}],
+                                                feature_extraction="mlp")
 
-# class CustomLSTMPolicy(LstmPolicy):
-#     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm=8, reuse=False, **_kwargs):
-#         super().__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, n_lstm, reuse,
-#                          net_arch=[4, 'lstm', dict(vf=[4,4], pi=[4,4]) ],
-#                          layer_norm=True, feature_extraction="mlp", **_kwargs)
+model_filename = l2s_path + "trained_models/energy_v1.1"
 
-# class CustomPolicy(FeedForwardPolicy):
-#     def __init__(self, *args, **kwargs):
-#         super(CustomPolicy, self).__init__(*args, **kwargs,
-#             #net_arch=[ 32, dict(vf=[32,16], pi=[32,16]) ],
-#             net_arch=[ dict(vf=[32,16], pi=[8]) ],
-#             feature_extraction="mlp")
+tensorboard_filename = l2s_path + "tb_logs/energy_v1/"
 
-# Use #1 to create a new model, #2 to reload the model from the file
-#model = A2C(CustomLSTMPolicy,           # 1 
-model = A2C.load(model_filename,   # 2
-            env, 
-            tensorboard_log=tensorboard_filename,
-            verbose = 1,
-            learning_rate=3e-4,
-            gamma=0.99, 
-            n_steps=10, 
-            lr_schedule='linear'
+demo_name = l2s_path + 'demonstrations/seb_run014.npz'
+from stable_baselines.gail import ExpertDataset
+dataset = ExpertDataset(expert_path=demo_name, verbose=1,
+                        traj_limitation=-1, batch_size=64, train_fraction=0.9)
+
+#model = DDPG.load(model_filename+'_pre',   
+model = GAIL(   CustomPolicy, 
+                env, 
+                dataset,
+                verbose=1, 
+                tensorboard_log=tensorboard_filename,
+                n_cpu_tf_sess=8
         )
 
 try:
-    model.learn(total_timesteps=5000000, callback=TensorboardCallback())
+    model.learn(total_timesteps=500000, callback=TensorboardCallback())
 except (ROSInterruptException, ServiceException):
     print("Interrupted, saving model")
     model.save(model_filename)

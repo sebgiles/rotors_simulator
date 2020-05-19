@@ -23,7 +23,7 @@ class LearnToSoarEnv(gym.Env):
     def __init__(self):
         rospy.init_node('gym', anonymous=True)
 
-        self.time_step = 0.3
+        self.time_step = 0.5
 
         self.roll_pub  = rospy.Publisher("/l2s/attitude_cmd/roll",  Float32, queue_size=1)
         self.pitch_pub = rospy.Publisher("/l2s/attitude_cmd/pitch", Float32, queue_size=1)
@@ -52,7 +52,9 @@ class LearnToSoarEnv(gym.Env):
                                             high =np.array(obs_high),
                                             dtype=np.float32)
 
-        self.action_space = spaces.MultiDiscrete([3,3])
+        self.action_space = spaces.Box(low  = np.array([-1, -1]), 
+                                       high = np.array([+1, +1]), 
+                                       dtype=int)
         self.reward_range = (-np.inf, np.inf)
 
         # Variables used to calculate rewards and metrics
@@ -134,19 +136,22 @@ class LearnToSoarEnv(gym.Env):
         done = False
 
 
-        if z < 0:
+        if z < 5:
             done = True
-            reward += -E  # punish for crash landing by speed
+            #reward = -100
+            #reward += -E  # punish for crash landing by speed
 
-        if pitch < 0.2 and airspeed < 8:
+        elif pitch < - 0.5 and airspeed < 8:
             done = True
-            reward += -E  # punish for stalling by altitude 
+            #reward = -100
+            #reward += -E  # punish for stalling by altitude 
         
-        if np.abs(yaw) > 0.5 * np.pi:
+        elif np.abs(yaw) > 0.55 * np.pi:
             done = True
-            reward = -E
+            #reward = -100
+            #reward = -E
 
-        if x > 800:
+        elif x > 800:
             done = True
 
         observation = (z, v, roll, yaw, pitch)
@@ -166,8 +171,8 @@ class LearnToSoarEnv(gym.Env):
 
 
     def _apply_action(self, action):
-        roll_step_size = 0.075
-        pitch_step_size = 0.075
+        roll_step_size = 0.1
+        pitch_step_size = 0.1
 
         self.pitch_cmd += (action[0]-1) * pitch_step_size
         self.roll_cmd  += (action[1]-1) * roll_step_size 
@@ -188,22 +193,29 @@ class LearnToSoarEnv(gym.Env):
         self.roll_pub.publish(Float32(self.pitch_cmd))
         self.pitch_pub.publish(Float32(self.roll_cmd))
 
-        # theoretically limits altitude to 25 m if it doesn't gain energy
-        E = 25*9.81 
+        # theoretically limits altitude to 30 m if it doesn't gain energy
+        E = 20*9.81 
         rand_n = 2.0*(self.np_random.rand() - 0.5)
-        z = 15 + 2 * rand_n
+        z = 16 + 2 * rand_n
         v = np.sqrt(2 * (E - 9.81 * z))
 
         rand_n = 2.0*(self.np_random.rand() - 0.5)
-        yaw = 0.5 + 0.25*rand_n
+        yaw = 0.5 + 0.250*rand_n
 
-        self.init_state.pose.position.x = 0 - 400
-        self.init_state.pose.position.z = z + z
+        self.init_state.pose.position.x = - 400 + 0
         self.init_state.pose.position.y = 0
+        self.init_state.pose.position.z = 2 + z
+        self.init_state.pose.orientation.x = 0
+        self.init_state.pose.orientation.y = 0
         self.init_state.pose.orientation.w = np.cos(yaw/2)
-        self.init_state.pose.orientation.x = np.sin(yaw/2)
+        self.init_state.pose.orientation.z = np.sin(yaw/2)
+
         self.init_state.twist.linear.x  = v * np.cos(yaw)
         self.init_state.twist.linear.y  = v * np.sin(yaw) 
+        self.init_state.twist.linear.z  = 0
+        self.init_state.twist.angular.x = 0
+        self.init_state.twist.angular.y = 0
+        self.init_state.twist.angular.z = 0
 
         self.state = copy.deepcopy(self.init_state)
 
