@@ -157,7 +157,7 @@ class AlbatrossEnv(gym.Env):
         self.mean_energy      = 0.0
         self.max_energy         = E
         self.min_airspeed       = 999.0
-        self.episode_start_time = rospy.Time.now()
+        self.episode_start_time = rospy.Time.now().to_time()
 
         self.latest_state_msg = None
 
@@ -214,6 +214,7 @@ class AlbatrossEnv(gym.Env):
         rot = Rotation.from_quat(quat)
         euler = rot.as_euler('ZYX')
 
+        now = rospy.Time.now().to_time()
 
         v = np.array([vx,vy,vz])
 
@@ -255,10 +256,12 @@ class AlbatrossEnv(gym.Env):
         reward = max([0, deltaE])
 
         done = False
-        if z < -8:
+        if now - self.episode_start_time > 180:
+            done = True
+        elif z < -8:
             done = True  
             reward = 0 
-        
+        elif abs(roll) > 0.75*np.pi and z < 10:
         if abs(roll) > 0.75*np.pi and z < 10:
             done = True
             reward = 0
@@ -268,7 +271,7 @@ class AlbatrossEnv(gym.Env):
         if done and self.episode_start_time is not None: 
             # update these members so the StableBaselines callback can get
             # them and add them to the tensorboard log
-            now = rospy.Time.now()
+            self.duration = now - self.episode_start_time
             self.duration = now.to_time() - self.episode_start_time.to_time()
             self.final_airspeed = airspeed
             self.final_altitude = z
