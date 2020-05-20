@@ -262,7 +262,6 @@ class AlbatrossEnv(gym.Env):
             done = True  
             reward = 0 
         elif abs(roll) > 0.75*np.pi and z < 10:
-        if abs(roll) > 0.75*np.pi and z < 10:
             done = True
             reward = 0
             
@@ -272,7 +271,6 @@ class AlbatrossEnv(gym.Env):
             # update these members so the StableBaselines callback can get
             # them and add them to the tensorboard log
             self.duration = now - self.episode_start_time
-            self.duration = now.to_time() - self.episode_start_time.to_time()
             self.final_airspeed = airspeed
             self.final_altitude = z
             self.terminal_energy = E
