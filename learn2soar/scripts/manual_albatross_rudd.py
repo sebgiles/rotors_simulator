@@ -7,7 +7,7 @@ from teleop.msg import TwoTuple
 from std_msgs.msg import Float32, Bool
 
 import gym
-import rotors_gym_envs.learn_to_soar_circle_env_v0
+import rotors_gym_envs.l2s_energy_rudd_env_v0
 # import rotors_gym_envs.learn_to_albatross_env_v0
 import time
 class HumanInTheLoop():
@@ -38,8 +38,7 @@ class HumanInTheLoop():
 
 
 def main():
-    env = gym.make('LearnToCircle-v0')
-    # env = gym.make('Albatross-v0')
+    env = gym.make('l2s-energy-v0')
     agent = HumanInTheLoop()
     done = True
     while True:

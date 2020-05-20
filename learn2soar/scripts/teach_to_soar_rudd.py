@@ -8,7 +8,7 @@ from std_msgs.msg import Float32, Bool
 
 import gym
 from gym import spaces
-import rotors_gym_envs.learn_to_soar_circle_env_v0
+import rotors_gym_envs.l2s_energy_rudd_env_v0
 import time
         
 
@@ -38,10 +38,10 @@ class HumanInTheLoop():
     def _mouse_cb(self, msg):
         self.action = [msg.v, -msg.h, msg.h]
 
-demo_name = 'circle'
+demo_name = 'eugi_energy'
 
 def main():
-    env = gym.make('LearnToCircle-v0')
+    env = gym.make('l2s-energy-v0')
     agent = HumanInTheLoop()
 
     episode_starts = []
@@ -56,7 +56,7 @@ def main():
 
     while True:  
         if done: 
-            if ep_ret >= 500.0:
+            if ep_ret >= 100.0:
                 print("%.1f"%ep_ret)
                 episode_returns += [ep_ret]
                 episode_starts  += _episode_starts

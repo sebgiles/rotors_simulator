@@ -13,8 +13,9 @@ def get_wind(pos):
     z = pos.z - floor_offset
     wind = np.array([0,0,0, 0], dtype=float)
     shear_top = 15.0
-    wind_grad = -1.0
-    wind[1] = wind_grad * max(min(z, shear_top), 0.0)
+    # wind_grad = -1.0
+    # wind[1] = wind_grad * max(min(z, shear_top), 0.0)
+    wind[1] = -5.5 * np.log(max(min(z, shear_top), 0.0) + 1)
     return wind
 
 class Controller:

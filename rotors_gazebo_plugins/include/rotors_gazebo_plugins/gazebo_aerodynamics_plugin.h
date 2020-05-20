@@ -165,9 +165,10 @@ private:
             double z = p_cp.Z() - 10;
             double wind = 0.0;
             double shear_top = 15.0;
-            double wind_grad = -1.0;
+            // double wind_grad = -1.0;
 
-            wind = wind_grad * std::max(std::min(z, shear_top), 0.0);
+            // wind = wind_grad * std::max(std::min(z, shear_top), 0.0);
+            wind = -5.5 * log(std::max(std::min(z, shear_top), 0.0) + 1);
 
             V3D wind_local = V3D(0, wind, 0);
             return wind_local;
