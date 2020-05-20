@@ -73,8 +73,8 @@ def main():
             obs = env.reset()
             ep_steps = 0
 
-            while not agent.paused:
-                time.sleep(0.1)   
+            #while not agent.paused:
+            #    time.sleep(0.1)   
 
         try:
             act = agent(obs)
@@ -90,8 +90,8 @@ def main():
         
         # if ep_steps >= 60: 
         #     done = True
-        if agent.paused: 
-            done = True
+        #if agent.paused: 
+        #    done = True
 
 
         _rewards.append(rew)
