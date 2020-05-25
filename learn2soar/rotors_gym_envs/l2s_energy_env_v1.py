@@ -58,10 +58,9 @@ class AlbatrossEnv(gym.Env):
 
         # gym.Env overrides:
         #   observation space: (z, v, yaw, pitch, roll)
-        obs_low  = [    0.0,    0.0, -np.pi, -np.pi/2, -np.pi]
-        obs_high = [ np.Inf, np.Inf, +np.pi, +np.pi/2, +np.pi]
-        self.observation_space = spaces.Box(low  =np.array(obs_low), 
-                                            high =np.array(obs_high))
+        #obs_low  = [    0.0,    0.0, -np.pi, -np.pi/2, -np.pi]
+        #obs_high = [ np.Inf, np.Inf, +np.pi, +np.pi/2, +np.pi]
+        self.observation_space = spaces.Box(low=-1.0, high=1.0, shape=(5,))
 
         #   action space: (pitch_increment, roll_increment)
         self.action_space = spaces.Box(
@@ -115,7 +114,7 @@ class AlbatrossEnv(gym.Env):
             pitch   = self.rand() * np.pi/2
             roll    = self.rand() * np.pi
             z       = self.rand() * 10.0 + 7.5
-            if abs(roll) > 2.0 and pitch > 0.0:
+            if abs(roll) > 2.0 or pitch > 0.5 or pitch < -0.5:
                 good_enough = False
             else:
                 good_enough = True
@@ -156,7 +155,7 @@ class AlbatrossEnv(gym.Env):
         self.extracted_energy = 0.0
         self.mean_energy      = 0.0
         self.max_energy         = E
-        self.min_airspeed       = 999.0
+        self.min_airspeed       = airspeed
         self.episode_start_time = rospy.Time.now().to_time()
 
         self.latest_state_msg = None
@@ -200,7 +199,7 @@ class AlbatrossEnv(gym.Env):
         twist   = self.state.twist
 
         x = pose.position.x
-        y = pose.position.y
+        y = pose.position.y 
         z = pose.position.z - self.wind_floor_z
         vx = twist.linear.x
         vy = twist.linear.y
@@ -226,6 +225,9 @@ class AlbatrossEnv(gym.Env):
         roll  = euler[2]
 
         observation = np.array([z, airspeed, yaw, pitch, roll])
+        obs_middle = np.array([15.0, 25.0, 0.0, 0.0, 0.0])
+        obs_radius = np.array([15.0, 25.0, np.pi, np.pi/2, np.pi])
+        observation = (observation - obs_middle) / obs_radius
 
         if observation_only:
             return observation
@@ -240,20 +242,22 @@ class AlbatrossEnv(gym.Env):
         delta_yaw = yaw - self.last_yaw
         if abs(delta_yaw) > np.pi:
             delta_yaw = -np.sign(delta_yaw)*(np.abs(delta_yaw) - 2*np.pi)
-
         self.total_rotation += delta_yaw
-        self.last_energy = E
-        self.last_x = x
-        self.last_yaw = yaw
-        
+
         self.extracted_energy += max([0, deltaE])
         self.max_energy        = max([self.max_energy, E])
         self.min_airspeed      = min([self.min_airspeed, airspeed])
         self.mean_energy      += E*self.time_step
 
+        self.last_energy = E
+        self.last_x = x
+        self.last_yaw = yaw
+
         #reward = 1
         #reward = delta_x
-        reward = max([0, deltaE])
+        reward = 0
+        if delta_yaw < 0: #dumb way to break simmetry
+            reward = max([0, deltaE]) 
 
         done = False
         if now - self.episode_start_time > 180:

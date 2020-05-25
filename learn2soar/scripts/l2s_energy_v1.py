@@ -16,7 +16,8 @@ import rospkg
 
 import rotors_gym_envs.l2s_energy_env_v1
 
-env = gym.make('l2s-energy-v1')
+env_type = 'energy-v1'
+env = gym.make('l2s-'+env_type)
 
 l2s_path = rospkg.RosPack().get_path('learn2soar') + "/"
 
@@ -47,48 +48,54 @@ class TensorboardCallback(BaseCallback):
         self.locals['writer'].add_summary(summary, self.num_timesteps)
         return True
 
-
-# Custom MLP policy of two layers of size 16 each
 class CustomDDPGPolicy(FeedForwardPolicy):
     def __init__(self, *args, **kwargs):
         super(CustomDDPGPolicy, self).__init__(*args, **kwargs,
-                                                layers=[8],
-                                                layer_norm=False,
-                                                feature_extraction="mlp")
+            layers=[256, 256],
+            layer_norm=False,
+            feature_extraction="mlp"
+            )
 
-model_filename = l2s_path + "trained_models/energy_v1.1"
-
-tensorboard_filename = l2s_path + "tb_logs/energy_v1/"
+name = "DDPG.256-256.nrm"
+model_filename = l2s_path + "trained_models/"+env_type+'.'+name
+tensorboard_filename = l2s_path + "tb_logs/"+env_type+'/'
 
 # the noise objects for DDPG
 n_actions = env.action_space.shape[-1]
-param_noise = AdaptiveParamNoiseSpec(initial_stddev=0.1, desired_action_stddev=0.1, adoption_coefficient=1.01)
+
+param_noise = AdaptiveParamNoiseSpec(
+    initial_stddev=0.1, 
+    desired_action_stddev=0.2, 
+    adoption_coefficient=1.01
+    )
 action_noise = None
 #action_noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(n_actions), sigma=float(0.1) * np.ones(n_actions))
 
-model = DDPG.load(model_filename,   
+model = DDPG.load(model_filename+".pre",   
 #model = DDPG(   CustomDDPGPolicy, 
-                env, 
-                param_noise=param_noise, 
-                action_noise=action_noise,
-                actor_lr=2e-7,
-                critic_lr=2e-5,
-                verbose=1, 
-                tensorboard_log=tensorboard_filename,
-                n_cpu_tf_sess=2
-        )
+    env, 
+    param_noise=param_noise, 
+    action_noise=action_noise,
+    actor_lr=2e-7,
+    critic_lr=2e-4,
+    verbose=1, 
+    tensorboard_log=tensorboard_filename,
+    n_cpu_tf_sess=8,
+    buffer_size=100000
+    )
 
 pretrain = False
 if pretrain:
-    demo_name = l2s_path + 'demonstrations/seb_run014.npz'
+    demo_name = l2s_path + 'demonstrations/seb_run014.nrm.npz'
     from stable_baselines.gail import ExpertDataset
     dataset = ExpertDataset(expert_path=demo_name, verbose=1,
-                            traj_limitation=-1, batch_size=64, train_fraction=0.9)
-    model.pretrain(dataset, n_epochs=3000, )
-    model.save(model_filename+'_pre')
+                            traj_limitation=-1, batch_size=128, train_fraction=0.9)
+    model.pretrain(dataset, n_epochs=1500, )
+    model.save(model_filename+'.pre')
 
     try:
-        while True:
+        # show off 10 episodes from pretraining only
+        for _ in range(5):
                 obs = env.reset()
                 ep_rew = .0
                 done = False
@@ -101,11 +108,15 @@ if pretrain:
         print("Interrupted, moving on to training")
 
 try:
-    model.learn(total_timesteps=500000, callback=TensorboardCallback())
+    model.learn(
+        total_timesteps=1000000, 
+        callback=TensorboardCallback(),
+        tb_log_name=name,
+        )
 except (ROSInterruptException, ServiceException):
     print("Interrupted, saving model")
-    model.save(model_filename)
+    model.save(model_filename+'.int')
     exit()
 
-model.save(model_filename)
+model.save(model_filename+'.500k')
 
