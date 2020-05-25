@@ -89,6 +89,12 @@ model = MVEDDPG(   CustomMVEPolicy,
 
 pretrain = False
 if pretrain:
+    data_name = l2s_path + 'demonstrations/seb_run000.npz'
+    from pred_dataset import ExperienceDataset
+    dataset = ExperienceDataset(data_path=data_name, verbose=1,
+                            traj_limitation=-1, batch_size=128, train_fraction=0.9)
+    model.pretrain_predictor(dataset, n_epochs=60, learning_rate=1e-3)
+    
     demo_name = l2s_path + 'demonstrations/seb_run014.nrm.npz'
     from stable_baselines.gail import ExpertDataset
     dataset = ExpertDataset(expert_path=demo_name, verbose=1,

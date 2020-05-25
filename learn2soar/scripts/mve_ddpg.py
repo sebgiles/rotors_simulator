@@ -18,7 +18,7 @@ from stable_baselines.common.mpi_adam import MpiAdam
 from stable_baselines.common.buffers import ReplayBuffer
 from stable_baselines.common.math_util import unscale_action, scale_action
 from stable_baselines.common.mpi_running_mean_std import RunningMeanStd
-from stable_baselines.ddpg.policies import DDPGPolicy
+from mve_policy import MVEPolicy
 
 
 def normalize(tensor, stats):
@@ -195,6 +195,7 @@ class MVEDDPG(OffPolicyRLModel):
         results, you must set `n_cpu_tf_sess` to 1.
     :param n_cpu_tf_sess: (int) The number of threads for TensorFlow operations
         If None, the number of cpu of the current machine will be used.
+    :param mve_horizon: (int) The number of steps to be imagined by the  
     """
     def __init__(self, policy, env, gamma=0.99, memory_policy=None, eval_env=None, nb_train_steps=50,
                  nb_rollout_steps=100, nb_eval_steps=100, param_noise=None, action_noise=None,
@@ -206,7 +207,7 @@ class MVEDDPG(OffPolicyRLModel):
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=1):
 
         super(MVEDDPG, self).__init__(policy=policy, env=env, replay_buffer=None,
-                                   verbose=verbose, policy_base=DDPGPolicy,
+                                   verbose=verbose, policy_base=MVEDDPG,
                                    requires_vec_env=False, policy_kwargs=policy_kwargs,
                                    seed=seed, n_cpu_tf_sess=n_cpu_tf_sess)
 
@@ -277,6 +278,7 @@ class MVEDDPG(OffPolicyRLModel):
         self.ret_rms = None
         self.target_policy = None
         self.actor_tf = None
+        self.target_actor = None
         self.normalized_critic_tf = None
         self.critic_tf = None
         self.normalized_critic_with_actor_tf = None
@@ -300,7 +302,8 @@ class MVEDDPG(OffPolicyRLModel):
         self.params = None
         self.summary = None
         self.tb_seen_steps = None
-
+        self.pred_rew = None
+        self.pred_obs = None
         self.target_params = None
         self.obs_rms_params = None
         self.ret_rms_params = None
@@ -319,7 +322,7 @@ class MVEDDPG(OffPolicyRLModel):
 
             assert isinstance(self.action_space, gym.spaces.Box), \
                 "Error: DDPG cannot output a {} action space, only spaces.Box is supported.".format(self.action_space)
-            assert issubclass(self.policy, DDPGPolicy), "Error: the input policy for the DDPG model must be " \
+            assert issubclass(self.policy, MVEPolicy), "Error: the input policy for the DDPG model must be " \
                                                         "an instance of DDPGPolicy."
 
             self.graph = tf.Graph()
@@ -355,7 +358,7 @@ class MVEDDPG(OffPolicyRLModel):
 
                     normalized_obs = tf.clip_by_value(normalize(self.policy_tf.processed_obs, self.obs_rms),
                                                        self.observation_range[0], self.observation_range[1])
-                    normalized_next_obs = tf.clip_by_value(normalize(self.target_policy.processed_obs, self.obs_rms),
+                    normalized_target_obs = tf.clip_by_value(normalize(self.target_policy.processed_obs, self.obs_rms),
                                                        self.observation_range[0], self.observation_range[1])
 
                     if self.param_noise is not None:
@@ -393,8 +396,11 @@ class MVEDDPG(OffPolicyRLModel):
                     self._setup_param_noise(normalized_obs)
 
                 with tf.variable_scope("target", reuse=False):
-                    critic_target = self.target_policy.make_critic(normalized_next_obs,
-                                                                   self.target_policy.make_actor(normalized_next_obs))
+                    self.target_actor = self.target_policy.make_actor(normalized_target_obs)
+                    critic_target = self.target_policy.make_critic(normalized_target_obs, self.target_actor)
+
+                with tf.variable_scope("predictor", reuse=False):
+                    self.pred_obs, self.pred_rew = self.target_policy.make_predictor(normalized_target_obs, self.target_actor)
 
                 with tf.variable_scope("loss", reuse=False):
                     self.critic_tf = denormalize(
@@ -438,7 +444,8 @@ class MVEDDPG(OffPolicyRLModel):
                     tf.summary.scalar('critic_loss', self.critic_loss)
 
                 self.params = tf_util.get_trainable_vars("model") \
-                    + tf_util.get_trainable_vars('noise/') + tf_util.get_trainable_vars('noise_adapt/')
+                    + tf_util.get_trainable_vars('noise/') + tf_util.get_trainable_vars('noise_adapt/')\
+                    + tf_util.get_trainable_vars('predictor/')
 
                 self.target_params = tf_util.get_trainable_vars("target")
                 self.obs_rms_params = [var for var in tf.global_variables()
@@ -656,12 +663,16 @@ class MVEDDPG(OffPolicyRLModel):
         rewards = rewards.reshape(-1, 1)
         terminals = terminals.reshape(-1, 1)
 
+        pred_obs, pred_rew = self.sess.run([self.pred_obs, self.pred_rew], feed_dict={
+            self.obs_target: next_obs,
+        })
+
         if self.normalize_returns and self.enable_popart:
             old_mean, old_std, target_q = self.sess.run([self.ret_rms.mean, self.ret_rms.std, self.target_q],
                                                         feed_dict={
-                                                            self.obs_target: next_obs,
-                                                            self.rewards: rewards,
-                                                            self.terminals_ph: terminals
+                                                            self.obs_target: pred_obs,
+                                                            self.rewards: pred_rew,
+                                                            self.terminals_ph: terminals,
                                                         })
             self.ret_rms.update(target_q.flatten())
             self.sess.run(self.renormalize_q_outputs_op, feed_dict={
@@ -671,10 +682,12 @@ class MVEDDPG(OffPolicyRLModel):
 
         else:
             target_q = self.sess.run(self.target_q, feed_dict={
-                self.obs_target: next_obs,
-                self.rewards: rewards,
+                self.obs_target: pred_obs,
+                self.rewards: pred_rew,
                 self.terminals_ph: terminals
             })
+
+        target_q = rewards +(1-terminals)*self.gamma*target_q
 
         # Get all gradients and perform a synced update.
         ops = [self.actor_grads, self.actor_loss, self.critic_grads, self.critic_loss]
@@ -1122,6 +1135,7 @@ class MVEDDPG(OffPolicyRLModel):
             "buffer_size": self.buffer_size,
             "random_exploration": self.random_exploration,
             "policy": self.policy,
+            #"target_policy": self.target_policy,
             "n_envs": self.n_envs,
             "n_cpu_tf_sess": self.n_cpu_tf_sess,
             "seed": self.seed,
@@ -1168,3 +1182,98 @@ class MVEDDPG(OffPolicyRLModel):
         model.load_parameters(params)
 
         return model
+
+
+    def _get_pretrain_predictor_placeholders(self):
+        # Rescale [?] XXX: This might need to be done when we define predictor_with_policy
+        # deterministic_action = unscale_action(self.action_space, self.predictor_tf)
+        return  self.target_policy.obs_ph,\
+            self.target_policy.action_ph,\
+            self.target_policy.next_obs_ph,\
+            self.rewards,\
+            self.pred_obs,\
+            self.pred_rew\
+
+
+    def pretrain_predictor(self, dataset, n_epochs=10, learning_rate=1e-4,
+                 adam_epsilon=1e-8, val_interval=None):
+        """
+        Pretrain a model using behavior cloning:
+        supervised learning given an expert dataset.
+
+        NOTE: only Box and Discrete spaces are supported for now.
+
+        :param dataset: (ExpertDataset) Dataset manager
+        :param n_epochs: (int) Number of iterations on the training set
+        :param learning_rate: (float) Learning rate
+        :param adam_epsilon: (float) the epsilon value for the adam optimizer
+        :param val_interval: (int) Report training and validation losses every n epochs.
+            By default, every 10th of the maximum number of epochs.
+        :return: (BaseRLModel) the pretrained model
+        """
+        continuous_actions = isinstance(self.action_space, gym.spaces.Box)
+
+        assert continuous_actions, 'Only Discrete and Box action spaces are supported'
+
+        # Validate the model every 10% of the total number of iteration
+        if val_interval is None:
+            # Prevent modulo by zero
+            if n_epochs < 10:
+                val_interval = 1
+            else:
+                val_interval = int(n_epochs / 10)
+
+        with self.graph.as_default():
+            with tf.variable_scope('pretrain_predictor'):
+                obs_ph, actions_ph, next_obs_ph, rewards_ph, obs_pred_ph, rew_pred_ph = \
+                    self._get_pretrain_predictor_placeholders()
+                loss =  tf.reduce_mean(tf.square(next_obs_ph - obs_pred_ph)) + \
+                        tf.reduce_mean(tf.square(rewards_ph - rew_pred_ph))
+                optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate, epsilon=adam_epsilon)
+                optim_op = optimizer.minimize(loss, var_list=self.params)
+
+            self.sess.run(tf.global_variables_initializer())
+
+        if self.verbose > 0:
+            print("Fitting predictive model...")
+
+        for epoch_idx in range(int(n_epochs)):
+            train_loss = 0.0
+            # Full pass on the training set
+            for _ in range(len(dataset.train_loader)):
+                obs, actions, next_obs, rewards = dataset.get_next_batch('train')
+                feed_dict = {
+                    obs_ph: obs,
+                    actions_ph: actions,
+                    next_obs_ph: next_obs,
+                    rewards_ph: rewards
+                }
+
+                train_loss_, _ = self.sess.run([loss, optim_op], feed_dict)
+                train_loss += train_loss_
+
+            train_loss /= len(dataset.train_loader)
+
+            if self.verbose > 0 and (epoch_idx + 1) % val_interval == 0:
+                val_loss = 0.0
+                # Full pass on the validation set
+                for _ in range(len(dataset.val_loader)):
+                    obs, actions, next_obs, rewards = dataset.get_next_batch('val')
+                    val_loss_, = self.sess.run([loss], {obs_ph: obs,
+                                                        actions_ph: actions,
+                                                        next_obs_ph: next_obs,
+                                                        rewards_ph: rewards
+                                                        })
+                    val_loss += val_loss_
+
+                val_loss /= len(dataset.val_loader)
+                if self.verbose > 0:
+                    print("==== Training progress {:.2f}% ====".format(100 * (epoch_idx + 1) / n_epochs))
+                    print('Epoch {}'.format(epoch_idx + 1))
+                    print("Training loss: {:.6f}, Validation loss: {:.6f}".format(train_loss, val_loss))
+                    print()
+            # Free memory
+            del obs, actions, next_obs
+        if self.verbose > 0:
+            print("Pretraining done.")
+        return self

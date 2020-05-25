@@ -21,7 +21,7 @@ class MVEPolicy(DDPGPolicy):
 
     def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, layers=None,
                  cnn_extractor=nature_cnn, feature_extraction="cnn",
-                 layer_norm=False, act_fun=tf.nn.relu, **kwargs):
+                 layer_norm=False, act_fun=tf.nn.relu, pred_layers=[256, 256], **kwargs):
         super(MVEPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse,
                                                 scale=(feature_extraction == "cnn"))
 
@@ -35,10 +35,38 @@ class MVEPolicy(DDPGPolicy):
         if layers is None:
             layers = [64, 64]
         self.layers = layers
+        self.pred_layers = pred_layers
 
         assert len(layers) >= 1, "Error: must have at least one hidden layer for the policy."
 
         self.activ = act_fun
+        self.n_batch = n_batch
+        self.next_obs_ph = tf.placeholder(shape=(n_batch,) + ob_space.shape, dtype=ob_space.dtype, name='next_obs')
+
+
+    def make_predictor(self, obs=None, actions=None, reuse=False, scope="pred"):
+
+        with tf.variable_scope(scope, reuse=reuse):
+            ins = tf.concat([obs,actions], 1)
+
+            if self.feature_extraction == "cnn":
+                pred_h = self.cnn_extractor(ins, **self.cnn_kwargs)
+            else:
+                pred_h = tf.layers.flatten(ins)
+            for i, layer_size in enumerate(self.pred_layers):
+                pred_h = tf.layers.dense(pred_h, layer_size, name='fc' + str(i))
+                if self.layer_norm:
+                    pred_h = tf.contrib.layers.layer_norm(pred_h, center=True, scale=True)
+                pred_h = tf.nn.relu(pred_h)
+            out = tf.nn.relu(tf.layers.dense(pred_h, self.ob_space.shape[0]+1, name=scope,
+                                                     kernel_initializer=tf.random_uniform_initializer(minval=-3e-3,
+                                                                                                      maxval=3e-3)))
+            delta = out[:,:-1]
+            obs_pred = tf.add(obs, delta)
+            rew_pred = out[:,-1:]
+
+        return obs_pred, rew_pred
+    
 
     def make_actor(self, obs=None, reuse=False, scope="pi"):
         if obs is None:
@@ -59,6 +87,7 @@ class MVEPolicy(DDPGPolicy):
                                                                                                       maxval=3e-3)))
         return self.policy
 
+
     def make_critic(self, obs=None, action=None, reuse=False, scope="qf"):
         if obs is None:
             obs = self.processed_obs
@@ -71,7 +100,7 @@ class MVEPolicy(DDPGPolicy):
             else:
                 qf_h = tf.layers.flatten(obs)
             for i, layer_size in enumerate(self.layers):
-                qf_h = tf.layers.dense(qf_h, layer_size, name='fc' + str(i))
+                qf_h = tf.layers.dense(qf_h, layer_size, name='fc' + str(i), use_bias=True)
                 if self.layer_norm:
                     qf_h = tf.contrib.layers.layer_norm(qf_h, center=True, scale=True)
                 qf_h = self.activ(qf_h)
