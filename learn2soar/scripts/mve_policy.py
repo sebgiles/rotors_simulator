@@ -54,18 +54,17 @@ class MVEPolicy(DDPGPolicy):
             else:
                 pred_h = tf.layers.flatten(ins)
             for i, layer_size in enumerate(self.pred_layers):
-                pred_h = tf.layers.dense(pred_h, layer_size, name='fc' + str(i))
+                pred_h = tf.layers.dense(pred_h, layer_size, name='fc' + str(i), use_bias=True)
                 if self.layer_norm:
                     pred_h = tf.contrib.layers.layer_norm(pred_h, center=True, scale=True)
                 pred_h = tf.nn.relu(pred_h)
-            out = tf.nn.relu(tf.layers.dense(pred_h, self.ob_space.shape[0]+1, name=scope,
+            out = tf.layers.dense(pred_h, self.ob_space.shape[0]+1, use_bias=True, name=scope,
                                                      kernel_initializer=tf.random_uniform_initializer(minval=-3e-3,
-                                                                                                      maxval=3e-3)))
-            delta = out[:,:-1]
-            obs_pred = tf.add(obs, delta)
+                                                                                                      maxval=3e-3))
+            delta_pred = out[:,:-1]
             rew_pred = out[:,-1:]
 
-        return obs_pred, rew_pred
+        return delta_pred, rew_pred
     
 
     def make_actor(self, obs=None, reuse=False, scope="pi"):
@@ -80,9 +79,9 @@ class MVEPolicy(DDPGPolicy):
             for i, layer_size in enumerate(self.layers):
                 pi_h = tf.layers.dense(pi_h, layer_size, name='fc' + str(i))
                 if self.layer_norm:
-                    pi_h = tf.contrib.layers.layer_norm(pi_h, center=True, scale=True)
+                    pi_h = tf.contrib.layers.layer_norm(pi_h, center=True, scale=True, use_bias=True)
                 pi_h = self.activ(pi_h)
-            self.policy = tf.nn.tanh(tf.layers.dense(pi_h, self.ac_space.shape[0], name=scope,
+            self.policy = tf.nn.tanh(tf.layers.dense(pi_h, self.ac_space.shape[0], use_bias=True, name=scope,
                                                      kernel_initializer=tf.random_uniform_initializer(minval=-3e-3,
                                                                                                       maxval=3e-3)))
         return self.policy

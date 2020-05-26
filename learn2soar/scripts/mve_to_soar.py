@@ -22,7 +22,7 @@ env = gym.make('l2s-'+env_type)
 class CustomMVEPolicy(MVEPolicy):
     def __init__(self, *args, **kwargs):
         super(CustomMVEPolicy, self).__init__(*args, **kwargs,
-            layers=[8,8],
+            layers=[8],
             layer_norm=False,
             feature_extraction="mlp"
             )
@@ -57,7 +57,7 @@ class TensorboardCallback(BaseCallback):
         return True
 
 
-name = "MVEDDPG.8-8.nrm" # <----------------
+name = "MVEDDPG.8.nrm" # <----------------
 
 
 model_filename = l2s_path + "trained_models/"+env_type+'.'+name
@@ -74,26 +74,28 @@ param_noise = AdaptiveParamNoiseSpec(
 action_noise = None
 #action_noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(n_actions), sigma=float(0.1) * np.ones(n_actions))
 
-#model = MVEDDPG.load(model_filename+".pre",   
-model = MVEDDPG(   CustomMVEPolicy, 
+model = MVEDDPG.load(model_filename+".pre",   
+#model = MVEDDPG(   CustomMVEPolicy, 
     env, 
     param_noise=param_noise, 
     action_noise=action_noise,
     actor_lr=2e-7,
     critic_lr=2e-4,
+    nb_train_steps=50,
+    nb_rollout_steps=100,
     verbose=1, 
     tensorboard_log=tensorboard_filename,
     n_cpu_tf_sess=8,
-    buffer_size=100000
+    buffer_size=50000
     )
 
 pretrain = False
 if pretrain:
-    data_name = l2s_path + 'demonstrations/seb_run000.npz'
+    data_name = l2s_path + 'demonstrations/seb_run000.nrm.npz'
     from pred_dataset import ExperienceDataset
     dataset = ExperienceDataset(data_path=data_name, verbose=1,
                             traj_limitation=-1, batch_size=128, train_fraction=0.9)
-    model.pretrain_predictor(dataset, n_epochs=60, learning_rate=1e-3)
+    model.pretrain_predictor(dataset, n_epochs=100, learning_rate=1e-3)
     
     demo_name = l2s_path + 'demonstrations/seb_run014.nrm.npz'
     from stable_baselines.gail import ExpertDataset

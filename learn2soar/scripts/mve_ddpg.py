@@ -412,8 +412,7 @@ class MVEDDPG(OffPolicyRLModel):
                                          self.return_range[0], self.return_range[1]),
                         self.ret_rms)
 
-                    q_next_obs = denormalize(critic_target, self.ret_rms)
-                    self.target_q = self.rewards + (1. - self.terminals_ph) * self.gamma * q_next_obs
+                    self.target_q = denormalize(critic_target, self.ret_rms)
 
                     tf.summary.scalar('critic_target', tf.reduce_mean(self.critic_target))
                     if self.full_tensorboard_log:
@@ -663,31 +662,39 @@ class MVEDDPG(OffPolicyRLModel):
         rewards = rewards.reshape(-1, 1)
         terminals = terminals.reshape(-1, 1)
 
-        pred_obs, pred_rew = self.sess.run([self.pred_obs, self.pred_rew], feed_dict={
-            self.obs_target: next_obs,
-        })
+        h = 10
+        imagined_states  = np.zeros([self.batch_size, h+1, 5])
+        imagined_disc_rewards = np.zeros([self.batch_size, h+1, 1])
+        imagined_states[:,0,:] = next_obs
+        imagined_disc_rewards[:,0,:] = rewards
+        
+        for i in range(1,h+1):
+            pred_delta_normed, pred_rew = self.sess.run([self.pred_obs, self.pred_rew], feed_dict={
+                self.obs_target: next_obs,
+            })
+            pred_obs = next_obs + pred_delta_normed * np.array([0.37117282, 0.12162466, 0.42862899, 0.27864469, 0.3842016 ])
+            pred_rew = (pred_rew * 20.66) + 12.06
+            imagined_states[:,i,:] = pred_obs
+            imagined_disc_rewards[:,i,:] = pred_rew * (self.gamma**i)
 
         if self.normalize_returns and self.enable_popart:
-            old_mean, old_std, target_q = self.sess.run([self.ret_rms.mean, self.ret_rms.std, self.target_q],
+            old_mean, old_std, terminal_q = self.sess.run([self.ret_rms.mean, self.ret_rms.std, self.target_q],
                                                         feed_dict={
-                                                            self.obs_target: pred_obs,
+                                                            self.obs_target: imagined_states[:,-1,:],
                                                             self.rewards: pred_rew,
-                                                            self.terminals_ph: terminals,
                                                         })
-            self.ret_rms.update(target_q.flatten())
+            self.ret_rms.update(terminal_q.flatten())
             self.sess.run(self.renormalize_q_outputs_op, feed_dict={
                 self.old_std: np.array([old_std]),
                 self.old_mean: np.array([old_mean]),
             })
 
         else:
-            target_q = self.sess.run(self.target_q, feed_dict={
-                self.obs_target: pred_obs,
-                self.rewards: pred_rew,
-                self.terminals_ph: terminals
+            terminal_q = self.sess.run(self.target_q, feed_dict={
+                self.obs_target: imagined_states[:,-1,:],
             })
 
-        target_q = rewards +(1-terminals)*self.gamma*target_q
+        target_q = np.sum(imagined_disc_rewards, axis=(1)) + self.gamma**(h+1)*terminal_q
 
         # Get all gradients and perform a synced update.
         ops = [self.actor_grads, self.actor_loss, self.critic_grads, self.critic_loss]
@@ -1135,7 +1142,6 @@ class MVEDDPG(OffPolicyRLModel):
             "buffer_size": self.buffer_size,
             "random_exploration": self.random_exploration,
             "policy": self.policy,
-            #"target_policy": self.target_policy,
             "n_envs": self.n_envs,
             "n_cpu_tf_sess": self.n_cpu_tf_sess,
             "seed": self.seed,
@@ -1227,7 +1233,7 @@ class MVEDDPG(OffPolicyRLModel):
             with tf.variable_scope('pretrain_predictor'):
                 obs_ph, actions_ph, next_obs_ph, rewards_ph, obs_pred_ph, rew_pred_ph = \
                     self._get_pretrain_predictor_placeholders()
-                loss =  tf.reduce_mean(tf.square(next_obs_ph - obs_pred_ph)) + \
+                loss =  tf.reduce_mean(tf.square( (next_obs_ph-obs_ph)/np.array([0.37117282, 0.12162466, 0.42862899, 0.27864469, 0.3842016 ]) - obs_pred_ph )) + \
                         tf.reduce_mean(tf.square(rewards_ph - rew_pred_ph))
                 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate, epsilon=adam_epsilon)
                 optim_op = optimizer.minimize(loss, var_list=self.params)
@@ -1242,6 +1248,7 @@ class MVEDDPG(OffPolicyRLModel):
             # Full pass on the training set
             for _ in range(len(dataset.train_loader)):
                 obs, actions, next_obs, rewards = dataset.get_next_batch('train')
+                rewards = (rewards - 12.06)/20.66
                 feed_dict = {
                     obs_ph: obs,
                     actions_ph: actions,
@@ -1259,6 +1266,7 @@ class MVEDDPG(OffPolicyRLModel):
                 # Full pass on the validation set
                 for _ in range(len(dataset.val_loader)):
                     obs, actions, next_obs, rewards = dataset.get_next_batch('val')
+                    rewards = (rewards - 12.06)/20.66
                     val_loss_, = self.sess.run([loss], {obs_ph: obs,
                                                         actions_ph: actions,
                                                         next_obs_ph: next_obs,
