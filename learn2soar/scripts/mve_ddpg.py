@@ -662,7 +662,7 @@ class MVEDDPG(OffPolicyRLModel):
         rewards = rewards.reshape(-1, 1)
         terminals = terminals.reshape(-1, 1)
 
-        h = 10
+        h = 20
         imagined_states  = np.zeros([self.batch_size, h+1, 5])
         imagined_disc_rewards = np.zeros([self.batch_size, h+1, 1])
         imagined_states[:,0,:] = next_obs
@@ -670,9 +670,9 @@ class MVEDDPG(OffPolicyRLModel):
         
         for i in range(1,h+1):
             pred_delta_normed, pred_rew = self.sess.run([self.pred_obs, self.pred_rew], feed_dict={
-                self.obs_target: next_obs,
+                self.obs_target: imagined_states[:,i-1,:],
             })
-            pred_obs = next_obs + pred_delta_normed * np.array([0.37117282, 0.12162466, 0.42862899, 0.27864469, 0.3842016 ])
+            pred_obs = imagined_states[:,i-1,:] + pred_delta_normed * np.array([0.37117282, 0.12162466, 0.42862899, 0.27864469, 0.3842016 ])
             pred_rew = (pred_rew * 20.66) + 12.06
             imagined_states[:,i,:] = pred_obs
             imagined_disc_rewards[:,i,:] = pred_rew * (self.gamma**i)
