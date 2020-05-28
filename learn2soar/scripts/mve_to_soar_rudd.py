@@ -14,9 +14,9 @@ from rospy.exceptions import ROSInterruptException
 from rospy.service    import ServiceException
 import rospkg 
 
-import rotors_gym_envs.l2s_energy_env_v1_rudd
+import rotors_gym_envs.l2s_energy_env_rudd_v1
 
-env_type = 'energy-v1-rudd'
+env_type = 'energy-rudd-v1'
 env = gym.make('l2s-'+env_type)
 
 class CustomMVEPolicy(MVEPolicy):
@@ -57,7 +57,7 @@ class TensorboardCallback(BaseCallback):
         return True
 
 
-name = "MVEDDPG.8.nrm" # <----------------
+name = "MVEDDPG.8.rudd" # <----------------
 
 
 model_filename = l2s_path + "trained_models/"+env_type+'.'+name
@@ -75,7 +75,7 @@ action_noise = None
 #action_noise = OrnsteinUhlenbeckActionNoise(mean=np.zeros(n_actions), sigma=float(0.1) * np.ones(n_actions))
 
 model = MVEDDPG.load(model_filename+".pre",   
-#model = MVEDDPG(   CustomMVEPolicy, 
+# model = MVEDDPG(   CustomMVEPolicy, 
     env, 
     param_noise=param_noise, 
     action_noise=action_noise,
@@ -91,13 +91,13 @@ model = MVEDDPG.load(model_filename+".pre",
 
 pretrain = False
 if pretrain:
-    data_name = l2s_path + 'demonstrations/seb_run000.nrm.npz'
+    data_name = l2s_path + 'demonstrations/energy_rudd_run001.npz'
     from pred_dataset import ExperienceDataset
     dataset = ExperienceDataset(data_path=data_name, verbose=1,
                             traj_limitation=-1, batch_size=128, train_fraction=0.9)
     model.pretrain_predictor(dataset, n_epochs=100, learning_rate=1e-3)
     
-    demo_name = l2s_path + 'demonstrations/seb_run014.nrm.npz'
+    demo_name = l2s_path + 'demonstrations/energy_rudd_run002.npz'
     from stable_baselines.gail import ExpertDataset
     dataset = ExpertDataset(expert_path=demo_name, verbose=1,
                             traj_limitation=-1, batch_size=128, train_fraction=0.9)
