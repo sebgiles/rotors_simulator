@@ -10,7 +10,7 @@ class get_model_dynamics():
         self.time_step  = 0.3
         self.alpha      = 0.0
         self.beta       = 0.0
-        self.m          = 2.55
+        self.mass       = 2.55
         self.g          = 9.81
 
         self.prev_z     = prev_observation[0]
@@ -22,10 +22,10 @@ class get_model_dynamics():
         self.yaw        = observation[2]
         self.pitch      = observation[3]
         self.roll       = observation[4]
-        self.d_e        = actions[0]
-        self.d_al       = actions[1]
-        self.d_ar       = - actions[1]
-        self.d_r        = actions[2]
+        self.d_e        = action[0]
+        self.d_al       = action[1]
+        self.d_ar       = - action[1]
+        self.d_r        = action[2]
 
         self.rot = Rotation.from_euler('ZYX', [self.yaw, self.pitch, self.roll])
 
@@ -38,7 +38,7 @@ class get_model_dynamics():
     
     def get_ground_speed(self):
 
-        I_v_wind = get_wind(self.z)
+        I_v_wind = self.get_wind(self.z)
         B_v_wind = self.rot.apply(I_v_wind)
 
         B_v_air = np.zeros((B_v_wind.shape))
@@ -66,9 +66,9 @@ class get_model_dynamics():
 
         action_vec = np.array([self.alpha, self.beta, self.d_al, self.d_ar, self.d_e, self.d_r, 1.0])
 
-        I_F_g = np.array([0.0, 0.0, self.m * self.g])
+        I_F_g = np.array([0.0, 0.0, self.mass * self.g])
 
-        B_w = get_ground_angular_velocity()
+        B_w = self.get_ground_angular_velocity()
 
         B_F_g = self.rot.apply(I_F_g)
         B_F_1 = B_F_a1.dot(B_w) * self.airspeed
@@ -76,25 +76,25 @@ class get_model_dynamics():
 
         return B_F_1 + B_F_2 + B_F_g
 
-    def get_get_next_ground_speed(self):
+    def get_next_ground_speed(self):
 
-        B_v = get_ground_velocity()
-        B_w = get_ground_angular_velocity()
-        B_F = get_net_cg_forces()
+        B_v = self.get_ground_speed()
+        B_w = self.get_ground_angular_velocity()
+        B_F = self.get_net_cg_forces()
 
         return B_v + self.time_step * (B_F / self.mass + np.cross(B_w,B_v))
 
     def get_next_altitude(self):
         
-        v = get_next_ground_speed()
+        v = self.get_next_ground_speed()
 
         return self.z + self.time_step * v[2]
 
     def get_next_airspeed(self):
 
-        next_v_g = get_next_ground_speed()
+        next_v_g = self.get_next_ground_speed()
 
-        return np.linalg.norm(next_v_g - get_wind(self.z))
+        return np.linalg.norm(next_v_g - self.get_wind(self.z))
 
     def get_net_torque(self):
 
@@ -108,7 +108,7 @@ class get_model_dynamics():
 
         action_vec = np.array([self.alpha, self.beta, self.d_al, self.d_ar, self.d_e, self.d_r, 1.0])
 
-        B_w = get_ground_angular_velocity()
+        B_w = self.get_ground_angular_velocity()
 
         return B_M_a1.dot(B_w) * self.airspeed + B_M_a2.dot(action_vec) + (self.airspeed**2)
 
@@ -118,8 +118,8 @@ class get_model_dynamics():
                       [0.0, 0.16235, 0.0],
                       [0.0281, 0.0, 0.69364]])
         
-        B_M = get_net_torque()
-        B_w = get_ground_angular_velocity()
+        B_M = self.get_net_torque()
+        B_w = self.get_ground_angular_velocity()
 
         next_w = B_w + self.time_step * (np.linalg.inv(J).dot(B_M + np.cross(B_w, J.dot(B_w))))
 
