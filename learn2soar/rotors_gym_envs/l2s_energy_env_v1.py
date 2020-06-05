@@ -85,7 +85,7 @@ class AlbatrossEnv(gym.Env):
         self.terminal_energy    = None
         self.positive_power     = None
         self.episode_start_time = None
-        self.duration           = None
+        # self.duration           = None
 
         # Initialize random number generator
         self._seed()
@@ -110,10 +110,10 @@ class AlbatrossEnv(gym.Env):
     def reset(self):
         good_enough = False
         while not good_enough:
-            yaw     = self.rand() * np.pi
-            pitch   = self.rand() * np.pi/2
-            roll    = self.rand() * np.pi
-            z       = self.rand() * 10.0 + 7.5
+            yaw     = self.rand() * 2*np.pi
+            pitch   = np.pi/10* np.sin(yaw) #np.pi/12 #self.rand() * np.pi/2
+            roll    = np.pi/4 #self.rand() * np.pi
+            z       = 7.5 + 10*np.cos(yaw) #self.rand() * 10.0 + 7.5
             if abs(roll) > 2.0 or pitch > 0.5 or pitch < -0.5:
                 good_enough = False
             else:
@@ -121,8 +121,8 @@ class AlbatrossEnv(gym.Env):
 
         rot = Rotation.from_euler('ZYX', [yaw,pitch,roll])
 
-        # theoretically limits altitude to 60 m if it doesn't gain energy
-        E = 60*9.81 
+        # theoretically limits altitude to 30 m if it doesn't gain energy
+        E = 30*9.81 
         
         wind = rot.apply(self.get_wind(z), inverse=True) # wind in glider frame
 
@@ -227,6 +227,7 @@ class AlbatrossEnv(gym.Env):
         observation = np.array([z, airspeed, yaw, pitch, roll])
         obs_middle = np.array([15.0, 25.0, 0.0, 0.0, 0.0])
         obs_radius = np.array([15.0, 25.0, np.pi, np.pi/2, np.pi])
+        
         observation = (observation - obs_middle) / obs_radius
 
         if observation_only:
@@ -242,6 +243,7 @@ class AlbatrossEnv(gym.Env):
         delta_yaw = yaw - self.last_yaw
         if abs(delta_yaw) > np.pi:
             delta_yaw = -np.sign(delta_yaw)*(np.abs(delta_yaw) - 2*np.pi)
+            
         self.total_rotation += delta_yaw
 
         self.extracted_energy += max([0, deltaE])
@@ -260,7 +262,7 @@ class AlbatrossEnv(gym.Env):
             reward = max([0, deltaE]) 
 
         done = False
-        if now - self.episode_start_time > 180:
+        if now - self.episode_start_time > 2000*self.time_step:
             done = True
         elif z < -8:
             done = True  
@@ -268,29 +270,23 @@ class AlbatrossEnv(gym.Env):
         elif abs(roll) > 0.75*np.pi and z < 10:
             done = True
             reward = 0
-            
 
         # "TELEMETRY"
-        if done and self.episode_start_time is not None: 
-            # update these members so the StableBaselines callback can get
-            # them and add them to the tensorboard log
-            self.duration = now - self.episode_start_time
-            self.final_airspeed = airspeed
-            self.final_altitude = z
-            self.terminal_energy = E
-            #self.extracted_energy = self.extracted_energy
-            #self.max_energy         = None
-            #self.min_airspeed       = None
-            #self.total_rotation = self.total_rotation
-            self.mean_energy /= self.duration
-            self.positive_power = self.extracted_energy/self.duration 
-
         info = {
-            'total_rotation':  self.total_rotation,
-            'max_energy':      self.max_energy,
-            'min_airspeed':    self.min_airspeed,
-            'mean_energy':     self.mean_energy,
+            'max_energy':       self.max_energy,
+            'min_airspeed':     self.min_airspeed,
+            'mean_energy':      self.mean_energy,            
+            'extracted_energy': self.extracted_energy
         }
+        if done and self.episode_start_time is not None: 
+            duration = now - self.episode_start_time
+            info['duration']        = duration
+            info['final_airspeed']  = airspeed
+            #info['final_altitude'] = z
+            info['terminal_energy'] = E
+            info['positive_power']  = self.extracted_energy / duration 
+            info['mean_energy']     = self.mean_energy / duration
+            info['avg_rotation']    =  self.total_rotation / duration
 
         return observation, reward, done, info
 
