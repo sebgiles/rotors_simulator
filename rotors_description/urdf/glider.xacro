@@ -260,7 +260,7 @@
   </xacro:control_surface>
 
   <!-- Instantiate the propeller -->
-  <xacro:propeller
+  <!-- <xacro:propeller
     robot_namespace="${namespace}"
     suffix="P0"
     parent="${namespace}/base_link"
@@ -270,17 +270,18 @@
     use_mesh_file="${use_mesh}"
     mesh_file="${propeller_mesh_file}">
     <origin xyz="-0.025 0 0.15" rpy="0 ${-0.5*PI} 0" />
-    <origin xyz="-0.1955 0 -0.1672" rpy="0 ${0.5*PI} 0" />   <!-- Mesh origin -->
+    <origin xyz="-0.1955 0 -0.1672" rpy="0 ${0.5*PI} 0" />   Mesh origin
     <xacro:insert_block name="propeller_inertia" />
-  </xacro:propeller>
+  </xacro:propeller> 
+-->
 
-  <!-- Tracing ribbon/Visual plugin
+  <!-- Tracing ribbon/Visual plugin -->
   <gazebo reference="${namespace}/base_link">
      <visual>
         <plugin name="visual_plugin_base_link" filename="librotors_gazebo_template_visual_plugin.so" />
      </visual>
   </gazebo>
-  -->
+  
 
   <xacro:if value="${enable_wind}">
     <gazebo>
