@@ -162,8 +162,6 @@ class MVEDDPG(OffPolicyRLModel):
     :param param_noise_adaption_interval: (int) apply param noise every N steps
     :param tau: (float) the soft update coefficient (keep old values, between 0 and 1)
     :param normalize_returns: (bool) should the critic output be normalized
-    :param enable_popart: (bool) enable pop-art normalization of the critic output
-        (https://arxiv.org/pdf/1602.07714.pdf), normalize_returns must be set to True.
     :param normalize_observations: (bool) should the observation be normalized
     :param batch_size: (int) the size of the batch for learning the policy
     :param observation_range: (tuple) the bounding values for the observation
@@ -200,8 +198,8 @@ class MVEDDPG(OffPolicyRLModel):
     def __init__(self, policy, env, gamma=0.99, memory_policy=None, eval_env=None, nb_train_steps=50,
                  nb_rollout_steps=100, nb_eval_steps=100, param_noise=None, action_noise=None,
                  normalize_observations=False, tau=0.001, batch_size=128, param_noise_adaption_interval=50,
-                 normalize_returns=False, enable_popart=False, observation_range=(-5., 5.), critic_l2_reg=0.,
-                 return_range=(-np.inf, np.inf), actor_lr=1e-4, critic_lr=1e-3, clip_norm=None, reward_scale=1.,
+                 normalize_returns=False, observation_range=(-np.inf, np.inf), critic_l2_reg=0.,
+                 return_range=(-np.inf, np.inf), actor_lr=1e-4, critic_lr=1e-3, pred_lr=1e-3, h=15, clip_norm=None, reward_scale=1.,
                  render=False, render_eval=False, memory_limit=None, buffer_size=50000, random_exploration=0.0,
                  verbose=0, tensorboard_log=None, _init_setup_model=True, policy_kwargs=None,
                  full_tensorboard_log=False, seed=None, n_cpu_tf_sess=1):
@@ -233,8 +231,8 @@ class MVEDDPG(OffPolicyRLModel):
         self.observation_range = observation_range
         self.actor_lr = actor_lr
         self.critic_lr = critic_lr
+        self.pred_lr = pred_lr
         self.clip_norm = clip_norm
-        self.enable_popart = enable_popart
         self.reward_scale = reward_scale
         self.batch_size = batch_size
         self.critic_l2_reg = critic_l2_reg
@@ -250,6 +248,7 @@ class MVEDDPG(OffPolicyRLModel):
         self.tensorboard_log = tensorboard_log
         self.full_tensorboard_log = full_tensorboard_log
         self.random_exploration = random_exploration
+        self.h = h
 
         # init
         self.graph = None
@@ -277,6 +276,9 @@ class MVEDDPG(OffPolicyRLModel):
         self.obs_rms = None
         self.ret_rms = None
         self.target_policy = None
+        self.pred_loss = None
+        self.pred_grads = None
+        self.pred_optimizer = None
         self.actor_tf = None
         self.target_actor = None
         self.normalized_critic_tf = None
@@ -307,6 +309,10 @@ class MVEDDPG(OffPolicyRLModel):
         self.target_params = None
         self.obs_rms_params = None
         self.ret_rms_params = None
+        self.pred_delta_normed = None
+        self.pred_rew_normed = None
+        self.pred_obs_error_vec = None
+        self.pred_done = None
 
         if _init_setup_model:
             self.setup_model()
@@ -400,7 +406,27 @@ class MVEDDPG(OffPolicyRLModel):
                     critic_target = self.target_policy.make_critic(normalized_target_obs, self.target_actor)
 
                 with tf.variable_scope("predictor", reuse=False):
-                    self.pred_obs, self.pred_rew = self.target_policy.make_predictor(normalized_target_obs, self.target_actor)
+                    self.pred_delta_normed, self.pred_rew_normed, self.pred_done = self.target_policy.make_predictor(self.target_policy.obs_ph, self.target_policy.action_ph)
+                    pred_delta    = self.pred_delta_normed * np.array([ 0.27281991, 
+                                                                        0.09118623, 
+                                                                        0.39521678, 
+                                                                        0.1420702,  
+                                                                        0.35845451])
+                    temp          = self.target_policy.next_obs_ph - self.obs_target
+                    true_delta    = tf.concat([temp[:,:2], (temp[:,2:5] + 1.0) % 2.0 - 1.0],1)
+                    temp          = self.obs_target + pred_delta
+                    self.pred_obs = tf.concat([temp[:,:2], (temp[:,2:5] + 1.0) % 2.0 - 1.0],1)
+                    self.pred_rew = (self.pred_rew_normed * 20.66) + 12.06
+
+                    rrms = lambda x_hat, x : tf.sqrt(tf.reduce_mean(tf.square(x_hat-x)))
+                    
+                    tf.summary.scalar('z_error',     rrms(pred_delta[:,0], true_delta[:,0]))
+                    tf.summary.scalar('v_error',     rrms(pred_delta[:,1], true_delta[:,1]))
+                    tf.summary.scalar('yaw_error',   rrms(pred_delta[:,2], true_delta[:,2]))
+                    tf.summary.scalar('pitch_error', rrms(pred_delta[:,3], true_delta[:,3]))
+                    tf.summary.scalar('roll_error',  rrms(pred_delta[:,4], true_delta[:,4]))
+                    tf.summary.scalar('rew_error',   rrms(self.pred_rew, self.rewards))
+                    tf.summary.scalar('term_error',  tf.reduce_mean(tf.abs(self.terminals_ph-self.pred_done)))
 
                 with tf.variable_scope("loss", reuse=False):
                     self.critic_tf = denormalize(
@@ -418,9 +444,6 @@ class MVEDDPG(OffPolicyRLModel):
                     if self.full_tensorboard_log:
                         tf.summary.histogram('critic_target', self.critic_target)
 
-                    # Set up parts.
-                    if self.normalize_returns and self.enable_popart:
-                        self._setup_popart()
                     self._setup_stats()
                     self._setup_target_network_updates()
 
@@ -439,8 +462,10 @@ class MVEDDPG(OffPolicyRLModel):
                 with tf.variable_scope("Adam_mpi", reuse=False):
                     self._setup_actor_optimizer()
                     self._setup_critic_optimizer()
+                    self._setup_pred_optimizer()
                     tf.summary.scalar('actor_loss', self.actor_loss)
                     tf.summary.scalar('critic_loss', self.critic_loss)
+                    tf.summary.scalar('pred_loss', self.pred_loss)
 
                 self.params = tf_util.get_trainable_vars("model") \
                     + tf_util.get_trainable_vars('noise/') + tf_util.get_trainable_vars('noise_adapt/')\
@@ -509,6 +534,34 @@ class MVEDDPG(OffPolicyRLModel):
         self.actor_optimizer = MpiAdam(var_list=tf_util.get_trainable_vars('model/pi/'), beta1=0.9, beta2=0.999,
                                        epsilon=1e-08)
 
+    def _setup_pred_optimizer(self):
+        """
+        setup the optimizer for the predictor
+        """
+        if self.verbose >= 2:
+            logger.info('setting up actor optimizer')
+        temp = self.target_policy.next_obs_ph - self.target_policy.obs_ph
+        true_delta = tf.concat([ 
+                temp[:,:2],
+                (temp[:,2:5] + 1.0) % 2.0 - 1.0,
+            ],1)
+        true_delta_normed = true_delta / np.array([0.27281991, 0.09118623, 0.39521678, 0.1420702,  0.35845451])
+        true_rew_normed = (self.rewards - 12.06)/20.66
+        self.pred_loss =  tf.reduce_mean(tf.square(tf.concat([
+            self.pred_delta_normed - true_delta_normed, 
+            self.pred_rew_normed - true_rew_normed, 
+            ], 1))) + tf.losses.log_loss(self.terminals_ph, self.pred_done)
+
+        pred_shapes = [var.get_shape().as_list() for var in tf_util.get_trainable_vars('predictor/pred/')]
+        pred_nb_params = sum([reduce(lambda x, y: x * y, shape) for shape in pred_shapes])
+        if self.verbose >= 2:
+            logger.info('  pred shapes: {}'.format(pred_shapes))
+            logger.info('  pred params: {}'.format(pred_nb_params))
+        self.pred_grads = tf_util.flatgrad(self.pred_loss, tf_util.get_trainable_vars('predictor/pred/'),
+                                            clip_norm=self.clip_norm)
+        self.pred_optimizer = MpiAdam(var_list=tf_util.get_trainable_vars('predictor/pred/'), beta1=0.9, beta2=0.999,
+                                       epsilon=1e-08)
+
     def _setup_critic_optimizer(self):
         """
         setup the optimizer for the critic
@@ -540,30 +593,6 @@ class MVEDDPG(OffPolicyRLModel):
         self.critic_optimizer = MpiAdam(var_list=tf_util.get_trainable_vars('model/qf/'), beta1=0.9, beta2=0.999,
                                         epsilon=1e-08)
 
-    def _setup_popart(self):
-        """
-        setup pop-art normalization of the critic output
-
-        See https://arxiv.org/pdf/1602.07714.pdf for details.
-        Preserving Outputs Precisely, while Adaptively Rescaling Targets”.
-        """
-        self.old_std = tf.placeholder(tf.float32, shape=[1], name='old_std')
-        new_std = self.ret_rms.std
-        self.old_mean = tf.placeholder(tf.float32, shape=[1], name='old_mean')
-        new_mean = self.ret_rms.mean
-
-        self.renormalize_q_outputs_op = []
-        for out_vars in [[var for var in tf_util.get_trainable_vars('model/qf/') if 'qf_output' in var.name],
-                         [var for var in tf_util.get_trainable_vars('target/qf/') if 'qf_output' in var.name]]:
-            assert len(out_vars) == 2
-            # wieght and bias of the last layer
-            weight, bias = out_vars
-            assert 'kernel' in weight.name
-            assert 'bias' in bias.name
-            assert weight.get_shape()[-1] == 1
-            assert bias.get_shape()[-1] == 1
-            self.renormalize_q_outputs_op += [weight.assign(weight * self.old_std / new_std)]
-            self.renormalize_q_outputs_op += [bias.assign((bias * self.old_std + self.old_mean - new_mean) / new_std)]
 
     def _setup_stats(self):
         """
@@ -662,48 +691,56 @@ class MVEDDPG(OffPolicyRLModel):
         rewards = rewards.reshape(-1, 1)
         terminals = terminals.reshape(-1, 1)
 
-        h = 20
-        imagined_states  = np.zeros([self.batch_size, h+1, 5])
-        imagined_disc_rewards = np.zeros([self.batch_size, h+1, 1])
-        imagined_states[:,0,:] = next_obs
-        imagined_disc_rewards[:,0,:] = rewards
-        
+        h = self.h
+        imagined_states         = np.zeros([self.batch_size, h+2, self.observation_space.shape[0]])
+        imagined_rewards        = np.zeros([self.batch_size, h+2])
+        imagined_actions        = np.zeros([self.batch_size, h+1, self.action_space.shape[0]])
+        imagined_states[:,0]  = obs
+        imagined_rewards[:,0] = rewards[:,0]
+        imagined_actions[:,0] = actions
+        imagined_states[:,1]  = next_obs
+        prev_done = np.copy(terminals)
         for i in range(1,h+1):
-            pred_delta_normed, pred_rew = self.sess.run([self.pred_obs, self.pred_rew], feed_dict={
-                self.obs_target: imagined_states[:,i-1,:],
+            next_action = self.sess.run(self.target_actor, feed_dict={
+                self.obs_target: imagined_states[:,i],
             })
-            pred_obs = imagined_states[:,i-1,:] + pred_delta_normed * np.array([0.37117282, 0.12162466, 0.42862899, 0.27864469, 0.3842016 ])
-            pred_rew = (pred_rew * 20.66) + 12.06
-            imagined_states[:,i,:] = pred_obs
-            imagined_disc_rewards[:,i,:] = pred_rew * (self.gamma**i)
-
-        if self.normalize_returns and self.enable_popart:
-            old_mean, old_std, terminal_q = self.sess.run([self.ret_rms.mean, self.ret_rms.std, self.target_q],
-                                                        feed_dict={
-                                                            self.obs_target: imagined_states[:,-1,:],
-                                                            self.rewards: pred_rew,
-                                                        })
-            self.ret_rms.update(terminal_q.flatten())
-            self.sess.run(self.renormalize_q_outputs_op, feed_dict={
-                self.old_std: np.array([old_std]),
-                self.old_mean: np.array([old_mean]),
+            pred_obs, pred_rew, new_pred_done = self.sess.run([self.pred_obs, self.pred_rew, self.pred_done], feed_dict={
+                self.obs_target: imagined_states[:,i],
+                self.target_policy.action_ph: next_action,
             })
 
-        else:
-            terminal_q = self.sess.run(self.target_q, feed_dict={
-                self.obs_target: imagined_states[:,-1,:],
-            })
+            # keep last state/action in rows which previously reached a termination
+            imagined_actions[:,i] =  next_action*(1-prev_done) + prev_done*imagined_actions[:,i-1]
+            imagined_states[:,i+1] =    pred_obs*(1-prev_done) + prev_done*imagined_states[:,i]
+            # freeze rew to 0 in rows which reach a termination
+            imagined_rewards[:,i] = (pred_rew*(1-prev_done))[:,0]  
+            # predicted states after terminations are terminations
+            prev_done = np.max([prev_done, new_pred_done],axis=0)
 
-        target_q = np.sum(imagined_disc_rewards, axis=(1)) + self.gamma**(h+1)*terminal_q
+        terminal_q = self.sess.run(self.target_q, feed_dict={
+            self.obs_target: imagined_states[:,h+1],
+        })
+
+        imagined_rewards[:,h+1] = (terminal_q*(1-prev_done))[:,0]
+
+        gamma_powers = np.tril(self.gamma**np.matmul(np.tri(h+2,k=-1),np.tri(h+2)))[:,:-1]
+        
+        target_q = np.reshape(np.matmul(imagined_rewards, gamma_powers), [self.batch_size*(h+1), 1])
+        imagined_actions = np.reshape(imagined_actions, [self.batch_size*(h+1), 2])
+        imagined_states = np.reshape(imagined_states[:,:-1], [self.batch_size*(h+1), 5])
 
         # Get all gradients and perform a synced update.
-        ops = [self.actor_grads, self.actor_loss, self.critic_grads, self.critic_loss]
+        ops = [self.actor_grads, self.actor_loss, self.critic_grads, self.critic_loss, self.pred_grads]
         td_map = {
-            self.obs_train: obs,
-            self.actions: actions,
-            self.action_train_ph: actions,
+            self.obs_train: imagined_states, # inputs to actor, critic, and critic_with_actor
+            self.obs_target: obs, #inputs to critic_target and to target_actor 
+            self.target_policy.action_ph: actions,
+            self.target_policy.next_obs_ph: next_obs,
+            self.actions: imagined_actions,             # inputs to the critic  <<< ***
+            self.action_train_ph: actions,              # reference for actor loss
+            self.terminals_ph: terminals,
             self.rewards: rewards,
-            self.critic_target: target_q,
+            self.critic_target: target_q,      # compared to the critic to evaluate loss
             self.param_noise_stddev: 0 if self.param_noise is None else self.param_noise.current_stddev
         }
         if writer is not None:
@@ -712,20 +749,21 @@ class MVEDDPG(OffPolicyRLModel):
             if self.full_tensorboard_log and log and step not in self.tb_seen_steps:
                 run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
                 run_metadata = tf.RunMetadata()
-                summary, actor_grads, actor_loss, critic_grads, critic_loss = \
+                summary, actor_grads, actor_loss, critic_grads, critic_loss, pred_grads = \
                     self.sess.run([self.summary] + ops, td_map, options=run_options, run_metadata=run_metadata)
 
                 writer.add_run_metadata(run_metadata, 'step%d' % step)
                 self.tb_seen_steps.append(step)
             else:
-                summary, actor_grads, actor_loss, critic_grads, critic_loss = self.sess.run([self.summary] + ops,
+                summary, actor_grads, actor_loss, critic_grads, critic_loss, pred_grads = self.sess.run([self.summary] + ops,
                                                                                             td_map)
             writer.add_summary(summary, step)
         else:
-            actor_grads, actor_loss, critic_grads, critic_loss = self.sess.run(ops, td_map)
+            actor_grads, actor_loss, critic_grads, critic_loss, pred_grads = self.sess.run(ops, td_map)
 
         self.actor_optimizer.update(actor_grads, learning_rate=self.actor_lr)
         self.critic_optimizer.update(critic_grads, learning_rate=self.critic_lr)
+        self.pred_optimizer.update(pred_grads, learning_rate=self.pred_lr)
 
         return critic_loss, actor_loss
 
@@ -965,6 +1003,8 @@ class MVEDDPG(OffPolicyRLModel):
                                 if maybe_is_success is not None:
                                     episode_successes.append(float(maybe_is_success))
 
+                                callback.on_episode_end(info)
+
                                 self._reset()
                                 if not isinstance(self.env, VecEnv):
                                     obs = self.env.reset()
@@ -1114,7 +1154,7 @@ class MVEDDPG(OffPolicyRLModel):
                 self.obs_rms_params +
                 self.ret_rms_params)
 
-    def save(self, save_path, cloudpickle=False):
+    def save(self, save_path, cloudpickle=False, save_buffer=False):
         data = {
             "observation_space": self.observation_space,
             "action_space": self.action_space,
@@ -1128,7 +1168,6 @@ class MVEDDPG(OffPolicyRLModel):
             "gamma": self.gamma,
             "tau": self.tau,
             "normalize_returns": self.normalize_returns,
-            "enable_popart": self.enable_popart,
             "normalize_observations": self.normalize_observations,
             "batch_size": self.batch_size,
             "observation_range": self.observation_range,
@@ -1146,8 +1185,11 @@ class MVEDDPG(OffPolicyRLModel):
             "n_cpu_tf_sess": self.n_cpu_tf_sess,
             "seed": self.seed,
             "_vectorize_action": self._vectorize_action,
-            "policy_kwargs": self.policy_kwargs
+            "policy_kwargs": self.policy_kwargs,
         }
+
+        if save_buffer:
+            data["replay_buffer"] = self.replay_buffer
 
         params_to_save = self.get_parameters()
 
@@ -1190,17 +1232,6 @@ class MVEDDPG(OffPolicyRLModel):
         return model
 
 
-    def _get_pretrain_predictor_placeholders(self):
-        # Rescale [?] XXX: This might need to be done when we define predictor_with_policy
-        # deterministic_action = unscale_action(self.action_space, self.predictor_tf)
-        return  self.target_policy.obs_ph,\
-            self.target_policy.action_ph,\
-            self.target_policy.next_obs_ph,\
-            self.rewards,\
-            self.pred_obs,\
-            self.pred_rew\
-
-
     def pretrain_predictor(self, dataset, n_epochs=10, learning_rate=1e-4,
                  adam_epsilon=1e-8, val_interval=None):
         """
@@ -1227,16 +1258,13 @@ class MVEDDPG(OffPolicyRLModel):
             if n_epochs < 10:
                 val_interval = 1
             else:
-                val_interval = int(n_epochs / 10)
+                val_interval = 10
 
         with self.graph.as_default():
             with tf.variable_scope('pretrain_predictor'):
-                obs_ph, actions_ph, next_obs_ph, rewards_ph, obs_pred_ph, rew_pred_ph = \
-                    self._get_pretrain_predictor_placeholders()
-                loss =  tf.reduce_mean(tf.square( (next_obs_ph-obs_ph)/np.array([0.37117282, 0.12162466, 0.42862899, 0.27864469, 0.3842016 ]) - obs_pred_ph )) + \
-                        tf.reduce_mean(tf.square(rewards_ph - rew_pred_ph))
+
                 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate, epsilon=adam_epsilon)
-                optim_op = optimizer.minimize(loss, var_list=self.params)
+                optim_op = optimizer.minimize(self.pred_loss, var_list=self.params)
 
             self.sess.run(tf.global_variables_initializer())
 
@@ -1247,16 +1275,16 @@ class MVEDDPG(OffPolicyRLModel):
             train_loss = 0.0
             # Full pass on the training set
             for _ in range(len(dataset.train_loader)):
-                obs, actions, next_obs, rewards = dataset.get_next_batch('train')
-                rewards = (rewards - 12.06)/20.66
+                obs, actions, next_obs, rewards, done = dataset.get_next_batch('train')
                 feed_dict = {
-                    obs_ph: obs,
-                    actions_ph: actions,
-                    next_obs_ph: next_obs,
-                    rewards_ph: rewards
+                    self.target_policy.obs_ph: obs,
+                    self.target_policy.action_ph: actions,
+                    self.target_policy.next_obs_ph: next_obs,
+                    self.rewards: rewards,
+                    self.terminals_ph: done
                 }
 
-                train_loss_, _ = self.sess.run([loss, optim_op], feed_dict)
+                train_loss_, _ = self.sess.run([self.pred_loss, optim_op], feed_dict)
                 train_loss += train_loss_
 
             train_loss /= len(dataset.train_loader)
@@ -1265,13 +1293,14 @@ class MVEDDPG(OffPolicyRLModel):
                 val_loss = 0.0
                 # Full pass on the validation set
                 for _ in range(len(dataset.val_loader)):
-                    obs, actions, next_obs, rewards = dataset.get_next_batch('val')
-                    rewards = (rewards - 12.06)/20.66
-                    val_loss_, = self.sess.run([loss], {obs_ph: obs,
-                                                        actions_ph: actions,
-                                                        next_obs_ph: next_obs,
-                                                        rewards_ph: rewards
-                                                        })
+                    obs, actions, next_obs, rewards, done = dataset.get_next_batch('val')
+                    feed_dict = {self.target_policy.obs_ph: obs,
+                    self.target_policy.action_ph: actions,
+                    self.target_policy.next_obs_ph: next_obs,
+                    self.rewards: rewards,
+                    self.terminals_ph: done # assume the recorded dataset does not include reset transitions
+                    }
+                    val_loss_, = self.sess.run([self.pred_loss], feed_dict)
                     val_loss += val_loss_
 
                 val_loss /= len(dataset.val_loader)

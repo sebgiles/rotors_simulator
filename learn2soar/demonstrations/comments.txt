@@ -1,1 +1,2 @@
 demonstrations/seb_run014.npz	no discarding
+demonstrations/seb_run000.npz	random bad flying
