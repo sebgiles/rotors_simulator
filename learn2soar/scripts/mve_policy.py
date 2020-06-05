@@ -19,7 +19,7 @@ class MVEPolicy(DDPGPolicy):
     :param kwargs: (dict) Extra keyword arguments for the nature CNN feature extraction
     """
 
-    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, layers=None,
+    def __init__(self, sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=False, actor_layers=None, critic_layers=None,
                  cnn_extractor=nature_cnn, feature_extraction="cnn",
                  layer_norm=False, act_fun=tf.nn.relu, pred_layers=[256, 256], **kwargs):
         super(MVEPolicy, self).__init__(sess, ob_space, ac_space, n_env, n_steps, n_batch, reuse=reuse,
@@ -32,12 +32,15 @@ class MVEPolicy(DDPGPolicy):
         self.cnn_extractor = cnn_extractor
         self.reuse = reuse
         self._qvalue = None
-        if layers is None:
-            layers = [64, 64]
-        self.layers = layers
+        if actor_layers is None:
+            actor_layers = [64, 64]        
+        if critic_layers is None:
+            critic_layers = [64, 64]
+        self.actor_layers = actor_layers
+        self.critic_layers = critic_layers
         self.pred_layers = pred_layers
 
-        assert len(layers) >= 1, "Error: must have at least one hidden layer for the policy."
+        assert len(critic_layers) >= 1, "Error: must have at least one hidden layer for the critic."
 
         self.activ = act_fun
         self.n_batch = n_batch
@@ -48,23 +51,19 @@ class MVEPolicy(DDPGPolicy):
 
         with tf.variable_scope(scope, reuse=reuse):
             ins = tf.concat([obs,actions], 1)
-
-            if self.feature_extraction == "cnn":
-                pred_h = self.cnn_extractor(ins, **self.cnn_kwargs)
-            else:
-                pred_h = tf.layers.flatten(ins)
+            pred_h = tf.layers.flatten(ins)
             for i, layer_size in enumerate(self.pred_layers):
                 pred_h = tf.layers.dense(pred_h, layer_size, name='fc' + str(i), use_bias=True)
-                if self.layer_norm:
-                    pred_h = tf.contrib.layers.layer_norm(pred_h, center=True, scale=True)
                 pred_h = tf.nn.relu(pred_h)
-            out = tf.layers.dense(pred_h, self.ob_space.shape[0]+1, use_bias=True, name=scope,
+            out = tf.layers.dense(pred_h, self.ob_space.shape[0]+1+1, use_bias=True, name=scope,
                                                      kernel_initializer=tf.random_uniform_initializer(minval=-3e-3,
                                                                                                       maxval=3e-3))
-            delta_pred = out[:,:-1]
-            rew_pred = out[:,-1:]
+            delta_pred = out[:,:-2]
+            rew_pred = out[:,-2:-1]
+            term_pred = tf.sigmoid(out[:,-1:], name='termination_output')
+            # please fit to normalised ground truth
 
-        return delta_pred, rew_pred
+        return delta_pred, rew_pred, term_pred
     
 
     def make_actor(self, obs=None, reuse=False, scope="pi"):
@@ -76,7 +75,7 @@ class MVEPolicy(DDPGPolicy):
                 pi_h = self.cnn_extractor(obs, **self.cnn_kwargs)
             else:
                 pi_h = tf.layers.flatten(obs)
-            for i, layer_size in enumerate(self.layers):
+            for i, layer_size in enumerate(self.actor_layers):
                 pi_h = tf.layers.dense(pi_h, layer_size, name='fc' + str(i))
                 if self.layer_norm:
                     pi_h = tf.contrib.layers.layer_norm(pi_h, center=True, scale=True, use_bias=True)
@@ -98,7 +97,7 @@ class MVEPolicy(DDPGPolicy):
                 qf_h = self.cnn_extractor(obs, **self.cnn_kwargs)
             else:
                 qf_h = tf.layers.flatten(obs)
-            for i, layer_size in enumerate(self.layers):
+            for i, layer_size in enumerate(self.critic_layers):
                 qf_h = tf.layers.dense(qf_h, layer_size, name='fc' + str(i), use_bias=True)
                 if self.layer_norm:
                     qf_h = tf.contrib.layers.layer_norm(qf_h, center=True, scale=True)
