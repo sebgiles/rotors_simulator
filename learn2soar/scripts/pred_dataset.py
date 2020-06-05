@@ -38,28 +38,19 @@ class ExperienceDataset(object):
             for key, val in traj_data.items():
                 print(key, val.shape)
 
-        dones = traj_data['episode_starts'][1:]
-
-        obs      = traj_data['obs'][:-1][~dones]
-        actions  = traj_data['actions'][:-1][~dones]
-        next_obs = np.copy(traj_data['obs'])[1:][~dones]
-        rewards  = traj_data['rewards'][:-1][~dones]
-        rewards  = np.reshape(rewards, [rewards.shape[0], 1])
-
-        # obs, actions: shape (N * L, ) + S
-        # where N = # episodes, L = episode length
-        # and S is the environment observation/action space.
-        # S = (1, ) for discrete space
-        # Flatten to (N * L, prod(S))
-        if len(obs.shape) > 2:
-            obs = np.reshape(obs, [-1, np.prod(obs.shape[1:])])
-            next_obs = np.reshape(next_obs, [-1, np.prod(next_obs.shape[1:])])
-        if len(actions.shape) > 2:
-            actions = np.reshape(actions, [-1, np.prod(actions.shape[1:])])
-
+        reset    = traj_data['episode_starts'][1:-1]
+        done     = traj_data['episode_starts'][2:][~reset]
+        obs      = np.copy(traj_data['obs'][:-2][~reset])
+        actions  = traj_data['actions'][:-2][~reset]
+        next_obs = np.copy(traj_data['obs'][1:-1][~reset])
+        rewards  = traj_data['rewards'][:-2][~reset]
+        rewards  = np.reshape(rewards, [rewards.shape[0], 1]) # create unused second dimension
+        done  = np.reshape(done, [done.shape[0], 1]) # create unused second dimension
+            
         assert len(obs) == len(actions),  "len(obs) is not equal to len(actions)"
         assert len(obs) == len(next_obs), "len(obs) is not equal to len(next_obs)"
         assert len(obs) == len(rewards),  "len(obs) is not equal to len(rewards)"
+        assert len(obs) == len(done),  "len(obs) is not equal to len(rewards)"
         self.num_transition = len(obs)
 
         indices = np.random.permutation(len(obs)).astype(np.int64)
@@ -75,6 +66,7 @@ class ExperienceDataset(object):
         self.actions = actions
         self.next_obs = next_obs
         self.rewards = rewards
+        self.done = done
 
         self.verbose = verbose
 
@@ -82,26 +74,15 @@ class ExperienceDataset(object):
         self.sequential_preprocessing = sequential_preprocessing
 
         self.dataloader = None
-        self.train_loader = DataLoader(train_indices, self.observations, self.actions, self.next_obs, self.rewards, batch_size,
+        self.train_loader = DataLoader(train_indices, self.observations, self.actions, self.next_obs, self.rewards, self.done, batch_size,
                                        shuffle=self.randomize, start_process=False,
                                        sequential=sequential_preprocessing)
-        self.val_loader = DataLoader(val_indices, self.observations, self.actions, self.next_obs, self.rewards, batch_size,
+        self.val_loader = DataLoader(val_indices, self.observations, self.actions, self.next_obs, self.rewards, self.done, batch_size,
                                      shuffle=self.randomize, start_process=False,
                                      sequential=sequential_preprocessing)
 
         if self.verbose >= 1:
             self.log_info()
-
-    def init_dataloader(self, batch_size):
-        """
-        Initialize the dataloader used by GAIL.
-
-        :param batch_size: (int)
-        """
-        indices = np.random.permutation(len(self.observations)).astype(np.int64)
-        self.dataloader = DataLoader(indices, self.observations, self.actions, self.next_obs, self.rewards, batch_size,
-                                     shuffle=self.randomize, start_process=False,
-                                     sequential=self.sequential_preprocessing)
 
     def __del__(self):
         del self.dataloader, self.train_loader, self.val_loader
@@ -166,7 +147,7 @@ class DataLoader(object):
         lesser than the batch_size)
     """
 
-    def __init__(self, indices, observations, actions, next_obs, rewards, batch_size, n_workers=1,
+    def __init__(self, indices, observations, actions, next_obs, rewards, done, batch_size, n_workers=1,
                  infinite_loop=True, max_queue_len=1, shuffle=False,
                  start_process=True, backend='threading', sequential=False, partial_minibatch=True):
         super(DataLoader, self).__init__()
@@ -184,6 +165,7 @@ class DataLoader(object):
         self.actions = actions
         self.next_obs = next_obs
         self.rewards = rewards
+        self.done = done
         self.shuffle = shuffle
         self.queue = Queue(max_queue_len)
         self.process = None
@@ -233,8 +215,9 @@ class DataLoader(object):
         actions = self.actions[self._minibatch_indices]
         next_obs = self.next_obs[self._minibatch_indices]
         rewards = self.rewards[self._minibatch_indices]
+        done = self.done[self._minibatch_indices]
         self.start_idx += self.batch_size
-        return obs, actions, next_obs, rewards
+        return obs, actions, next_obs, rewards, done
 
     def _run(self):
         start = True
@@ -264,8 +247,9 @@ class DataLoader(object):
                     actions = self.actions[self._minibatch_indices]
                     next_obs = self.next_obs[self._minibatch_indices]
                     rewards = self.rewards[self._minibatch_indices]
+                    done = self.done[self._minibatch_indices]
 
-                    self.queue.put((obs, actions, next_obs, rewards))
+                    self.queue.put((obs, actions, next_obs, rewards, done))
 
                     # Free memory
                     del obs
